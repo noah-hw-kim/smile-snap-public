@@ -1,0 +1,62 @@
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+import requests
+from config import FIREBASE_SIGN_IN_URL
+import logging
+from services.db_services import get_user_by_id
+
+router = APIRouter(
+    tags=["Authentication"]
+)
+
+@router.post("/token")
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """
+    Takes email (as username) and password, sends them to Firebase,
+    and returns the Firebase ID Token.
+    """
+    payload = {
+        "email": form_data.username,
+        "password": form_data.password,
+        "returnSecureToken": True
+    }
+
+    logger = logging.getLogger(__name__)
+    
+    try:
+        response = requests.post(FIREBASE_SIGN_IN_URL, json=payload, timeout=10)
+        response.raise_for_status() # Raise an exception for bad status codes
+        firebase_data = response.json()
+
+        firebase_uid = firebase_data.get("localId")
+        id_token = firebase_data.get("idToken")
+
+        if not firebase_uid or not id_token:
+            raise HTTPException(status_code=500, detail="Invalid response from auth service")
+
+        user_from_db = await get_user_by_id(firebase_uid) 
+        if not user_from_db:
+             raise HTTPException(status_code=404, detail="User not found in application database")
+
+        print(user_from_db)
+
+        # 3. Return both the token and the user data
+        return {
+            "access_token": id_token,
+            "token_type": "bearer",
+            "user": {
+                "userId": user_from_db["userId"],
+                "email": user_from_db["email"],
+                "displayName": user_from_db["displayName"],
+                "role": user_from_db["role"] # ✅ Now the role is included
+            }
+        }
+        
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"Firebase auth error: {str(e)}")
+
+        # Don't expose internal errors to client
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail="Authentication failed"
+        )

@@ -1,0 +1,12 @@
+fastapi[standard]
+uvicorn
+google-cloud-storage
+google-genai
+python-dotenv
+ipinfo
+motor
+pymongo
+google-auth[pyjwt]
+firebase-admin
+Pillow
+websockets
