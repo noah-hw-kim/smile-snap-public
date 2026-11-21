@@ -12,7 +12,6 @@ class UserCreate(BaseModel):
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
     displayName: Optional[str] = Field(None, max_length=100)  # User's display name
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    role: UserRole = Field(default=UserRole.USER, description="User role: user or admin")
 
 class UserUpdate(BaseModel):
     email: Optional[str] = None

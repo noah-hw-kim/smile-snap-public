@@ -27,7 +27,7 @@ async def create_user_services(user_data: dict) -> dict:
             "userId": new_firebase_user.uid,
             "email": user_data["email"],
             "displayName": user_data.get("displayName"),
-            "role": user_data.get("role", "user"),
+            "role": "user",  # Default role
             "createdAt": datetime.now(timezone.utc)
         }
         

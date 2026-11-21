@@ -33,8 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         email: document.getElementById('registerEmail').value,
                         password: document.getElementById('registerPassword').value,
-                        displayName: document.getElementById('displayName').value,
-                        role: document.getElementById('userRole').value
+                        displayName: document.getElementById('displayName').value
                     })
                 });
                 showAlert('Registration successful! Please login.', 'success');
