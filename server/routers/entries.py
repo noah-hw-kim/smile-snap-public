@@ -24,6 +24,17 @@ async def get_user_entries(
         entries.append(diary_entry_helper(entry))
     return entries
 
+# @router.get("", response_description="Get all entries for a user", response_model=List[DiaryEntry])
+# async def get_user_entries_no_slash(
+#     userId: str,
+#     authorized_user: dict = Depends(verify_ownership_or_admin)
+# ):
+#     # Get all entries for this user
+#     entries = []
+#     async for entry in diary_collection.find({"userId": userId}):
+#         entries.append(diary_entry_helper(entry))
+#     return entries
+
 @router.get("/count", response_description="Count entries for user")
 async def count_user_entries(
     userId: str,
@@ -94,3 +105,31 @@ async def delete_all_user_entries(
 ):
     delete_result = await diary_collection.delete_many({"userId": userId})
     return {"userId": userId, "deletedCount": delete_result.deleted_count}
+
+
+
+# @router.post("/", response_description="Add new entry for user", response_model=DiaryEntry)
+# async def create_user_entry(userId: str, entry: DiaryEntryCreate = Body(...), authorized_user: dict = Depends(verify_ownership_or_admin)):
+#     entry_dict = entry.model_dump()
+#     created_entry = await create_diary_entry_service(userId, entry_dict)
+#     return created_entry
+
+# === ENTRY CRUD operation ===
+# READ (all)
+# @router.get("/entries/", response_description="List all diary entries", response_model=List[DiaryEntry])
+# async def list_diary_entries():
+#     entries = []
+#     async for entry in diary_collection.find():
+#         entries.append(diary_entry_helper(entry))
+#     return entries
+
+# # READ (one)
+# @router.get("/entries/{id}", response_description="Get a single diary entry", response_model=DiaryEntry)
+# async def show_diary_entry(id: str):
+#     if not ObjectId.is_valid(id):
+#         raise HTTPException(status_code=400, detail=f"{id} is not a valid ObjectId")
+        
+#     entry = await diary_collection.find_one({"_id": ObjectId(id)})
+#     if entry is not None:
+#         return diary_entry_helper(entry)
+#     raise HTTPException(status_code=404, detail=f"Diary entry {id} not found")

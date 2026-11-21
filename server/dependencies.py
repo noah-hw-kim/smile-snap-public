@@ -90,3 +90,17 @@ def verify_firebase_token(token: str) -> dict:
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+# async def verify_ownership_or_admin_form(
+#     userId: str = Form(...),
+#     current_user: dict = Depends(get_current_user)
+# ):
+#     is_owner = current_user["userId"] == userId
+#     is_admin = current_user.get("role") == "admin"
+
+#     if not is_owner and not is_admin:
+#         raise HTTPException(
+#             status_code=status.HTTP_403_FORBIDDEN,
+#             detail="Not authorized to perform this action on this resource."
+#         )
+#     return current_user

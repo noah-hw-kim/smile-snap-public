@@ -1,5 +1,5 @@
 from fastapi import APIRouter, File, UploadFile, Form, Request, HTTPException, Depends, Response, status
-from services.api_services import upload_image_to_gcs, get_contextual_data, generate_diary_entry
+from services.api_services import upload_image_to_s3, get_contextual_data, generate_diary_entry
 from services.db_services import create_diary_entry_service, save_photo_metadata_service, delete_photo_service, get_photo_by_id
 from dependencies import get_accessible_photo, verify_ownership_or_admin, get_current_user
 from database import photo_collection, photo_helper
@@ -7,6 +7,7 @@ from models import Photo
 from typing import List
 import logging
 from .websockets import manager
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ async def upload_screenshot(
         userId = current_user["userId"]
         
         # logger.info("Calling upload_image_to_gcs...")
-        file_path = await upload_image_to_gcs(userId, image)
+        file_path = await upload_image_to_s3(userId, image)
         # logger.info(f"upload_image_to_gcs returned: {file_path}")
         
         # logger.info("Calling save_photo_metadata_service...")
@@ -73,7 +74,6 @@ async def upload_screenshot(
         logger.error(f"=== UPLOAD FAILED ===")
         logger.error(f"Error: {str(e)}")
         logger.error(f"Error type: {type(e)}")
-        import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -148,3 +148,133 @@ async def generate_from_screenshot(
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+# # === HELPER FUNCTIONS ===
+# async def _get_photo_or_404(photo_id: str, user_id: str) -> Dict[str, Any]:
+#     """
+#     Retrieves photo document or raises 404.
+    
+#     Args:
+#         photo_id: The photo ID to find
+#         user_id: The user ID who should own the photo
+        
+#     Returns:
+#         Photo document from database
+        
+#     Raises:
+#         HTTPException: 404 if photo not found
+#     """
+#     photo_doc = await photo_collection.find_one({
+#         "photoId": photo_id, 
+#         "userId": user_id
+#     })
+    
+#     if not photo_doc:
+#         logger.warning(f"Photo {photo_id} not found for user {user_id}")
+#         raise HTTPException(
+#             status_code=status.HTTP_404_NOT_FOUND,
+#             detail=f"Photo {photo_id} not found"
+#         )
+    
+#     if not photo_doc.get("filePath"):
+#         logger.error(f"Photo {photo_id} exists but has no filePath")
+#         raise HTTPException(
+#             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+#             detail="Photo exists but filePath is missing"
+#         )
+    
+#     return photo_doc
+
+# async def _get_context_data(request: Request) -> Dict[str, Any]:
+#     """
+#     Gets contextual data with error handling.
+    
+#     Args:
+#         request: FastAPI request object
+        
+#     Returns:
+#         Dictionary with location and weather data
+#     """
+#     try:
+#         context = await get_contextual_data(request)
+#         return context
+#     except Exception as e:
+#         logger.warning(f"Failed to get contextual data: {str(e)}")
+#         # Return default context if contextual data fails
+#         return {
+#             "location": "Unknown location",
+#             "weather": "Weather unavailable"
+#         }
+
+# async def _generate_diary_content(file_path: str, location: str, weather: str) -> str:
+#     """
+#     Generates diary content with error handling.
+    
+#     Args:
+#         image_url: URL of the image to analyze
+#         location: Location context
+#         weather: Weather context
+        
+#     Returns:
+#         Generated diary content string
+        
+#     Raises:
+#         Exception: If diary generation fails
+#     """
+#     try:
+#         diary_content = await generate_diary_entry(file_path, location, weather)
+        
+#         if not diary_content or not diary_content.strip():
+#             raise ValueError("Generated diary content is empty")
+            
+#         return diary_content
+        
+#     except Exception as e:
+#         logger.error(f"Failed to generate diary content for image {file_path}: {str(e)}")
+#         raise Exception(f"Diary generation failed: {str(e)}")
+
+
+# async def _create_diary_entry(
+#     userId: str, 
+#     content: str, 
+#     file_path: str, 
+#     location: str = None, 
+#     weather: str = None
+# ) -> Dict[str, Any]:
+#     """
+#     Creates and saves diary entry with validation.
+    
+#     Args:
+#         userId: User ID
+#         content: Diary content
+#         image_url: Image URL
+#         location: Optional location data
+#         weather: Optional weather data
+        
+#     Returns:
+#         Created diary entry data
+        
+#     Raises:
+#         Exception: If diary entry creation fails
+#     """
+#     entry_data = {
+#         "content": content,
+#         "filePath": file_path,
+#         "location": location,
+#         "weather": weather
+#     }
+    
+#     # Validate required fields
+#     if not content.strip():
+#         raise ValueError("Diary content cannot be empty")
+    
+#     if not file_path:
+#         raise ValueError("Image URL is required")
+    
+#     try:
+#         diary_entry = await create_diary_entry_service(userId, entry_data)
+#         return diary_entry
+        
+#     except Exception as e:
+#         logger.error(f"Failed to create diary entry for user {userId}: {str(e)}")
+#         raise Exception(f"Failed to save diary entry: {str(e)}")

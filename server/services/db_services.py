@@ -4,10 +4,9 @@ from database import user_collection, diary_collection, diary_entry_helper, phot
 from datetime import datetime, timezone
 from firebase_admin import auth
 # from routers.websockets import manager
-from google.cloud import storage
-from config import bucket
 import asyncio
 import logging
+from config import settings, s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,8 @@ async def create_user_services(user_data: dict) -> dict:
     Creates a user in Firebase Auth and a profile in MongoDB.
     """
     try:
-        new_firebase_user = auth.create_user(
+        new_firebase_user = await asyncio.to_thread(
+            auth.create_user,
             email=user_data["email"],
             password=user_data["password"],
             display_name=user_data.get("displayName")
@@ -66,48 +66,50 @@ async def update_user_service(userId: str, user_data: dict) -> dict:
 
 async def delete_user_service(userId: str) -> bool:
     """
-    Delete user and all their data from GCS, MongoDB, and Firebase Auth
+    Delete user and all their data from S3, MongoDB, and Firebase Auth
     """
     try:
         logger.info(f"Starting deletion for user {userId}")
         
-        # Step 1: Get all user's photos and delete from GCS
+        try:
+            await asyncio.to_thread(auth.delete_user, userId)
+            logger.info(f"Successfully deleted user {userId} from Firebase Auth")
+        except Exception as e:
+            # If Firebase fails, ABORT entirely. Do not touch the DB.
+            logger.error(f"Failed to delete Firebase identity for {userId}. Aborting deletion: {e}")
+            return False
+        
         photos_cursor = photo_collection.find({"userId": userId})
         photos = await photos_cursor.to_list(None)
         
-        if photos:            
-            for photo in photos:
+        if photos:
+            objects_to_delete = [
+                {'Key': photo["filePath"]} 
+                for photo in photos if photo.get("filePath")
+            ]
+            
+            if objects_to_delete:
                 try:
-                    if photo.get("filePath"):
-                        blob = bucket.blob(photo["filePath"])
-                        if blob.exists():
-                            blob.delete()
-                            logger.info(f"Deleted {photo['filePath']} from GCS")
+                    # Execute all deletions in ONE network call
+                    await asyncio.to_thread(
+                        s3_client.delete_objects,
+                        Bucket=settings.S3_BUCKET_NAME,
+                        Delete={'Objects': objects_to_delete}
+                    )
+                    logger.info(f"Batch deleted {len(objects_to_delete)} photos from S3")
                 except Exception as e:
-                    logger.error(f"Failed to delete photo {photo.get('photoId')} from GCS: {e}")
-                    # Continue with other photos
-        
-        # Step 2: Delete all user data from MongoDB
+                    logger.error(f"Failed batch S3 deletion for {userId}: {e}")
+                    # We log the error but CONTINUE to Step 3. 
+                    # Orphaned photos cost pennies; an orphaned DB record causes application bugs.
+            
         photos_deleted = await photo_collection.delete_many({"userId": userId})
         entries_deleted = await diary_collection.delete_many({"userId": userId})
         user_deleted = await user_collection.delete_one({"userId": userId})
         
-        # Step 3: Delete from Firebase Auth
-        await asyncio.to_thread(auth.delete_user, userId)
-        
-        # Step 4: Broadcast to admins
-        # await manager.broadcast_to_admins({
-        #     "type": "user_deleted",
-        #     "userId": userId,
-        #     "photos_deleted": photos_deleted.deleted_count,
-        #     "entries_deleted": entries_deleted.deleted_count
-        # })
-        
-        # logger.info(f"Successfully deleted user {userId}: {photos_deleted.deleted_count} photos, {entries_deleted.deleted_count} entries")
         return user_deleted.deleted_count == 1
         
     except Exception as e:
-        logger.error(f"Error deleting user {userId}: {str(e)}")
+        logger.error(f"Critical error in delete_user_service for {userId}: {str(e)}")
         return False
     
 async def get_user_by_id(user_id: str):
@@ -145,7 +147,7 @@ async def save_photo_metadata_service(userId: str, file_path: str) -> dict:
     return photo_helper(photo_doc)
 
 async def delete_photo_service(userId: str, photoId: str) -> bool:
-    """Deletes a photo from GCS and MongoDB, then broadcasts the change."""
+    """Deletes a photo from S3 and MongoDB, then broadcasts the change."""
     # print("start delete the photo")
     
     photo_doc = await get_photo_by_id(photoId, userId)
@@ -153,13 +155,23 @@ async def delete_photo_service(userId: str, photoId: str) -> bool:
 
     file_path_to_delete = photo_doc["filePath"]
 
-    # TODO: Add logic here to delete the file from GCS using photo_doc["filePath"]
-    try:
-        blob = bucket.blob(file_path_to_delete)
-        await asyncio.to_thread(blob.delete) # Use to_thread for sync call
-        print(f"Successfully deleted {file_path_to_delete} from GCS.")
-    except Exception as e:
-        print(f"Could not delete from GCS: {e}") # Log error but continue
+    objects_to_delete = [
+        {'Key': photo_doc["filePath"]} 
+    ]
+    
+    if objects_to_delete:
+        try:
+            # Execute all deletions in ONE network call
+            await asyncio.to_thread(
+                s3_client.delete_objects,
+                Bucket=settings.S3_BUCKET_NAME,
+                Delete={'Objects': objects_to_delete}
+            )
+            logger.info(f"Batch deleted {len(objects_to_delete)} photos from S3")
+        except Exception as e:
+            logger.error(f"Failed batch S3 deletion for {userId}: {e}")
+            # We log the error but CONTINUE to Step 3. 
+            # Orphaned photos cost pennies; an orphaned DB record causes application bugs.
     
     # Then, delete the document from MongoDB
     delete_result = await photo_collection.delete_one({"photoId": photoId})
@@ -192,6 +204,17 @@ async def create_diary_entry_service(userId: str, entry_data: dict) -> dict:
             raise HTTPException(status_code=500, detail="Failed to create diary entry")
         
         final_entry = diary_entry_helper(created_entry)
+
+        # message = {
+        #     "type": "entry_created",
+        #     "data": final_entry
+        # }
+
+        # # Broadcast to all connected admins
+        # await manager.broadcast_to_admins(message)
+        
+        # # Send an update ONLY to the user who created the entry
+        # await manager.send_to_user(message, userId)
 
         return final_entry
         

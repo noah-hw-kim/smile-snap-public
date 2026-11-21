@@ -1,5 +1,4 @@
-from config import database, bucket
-from google.cloud import storage
+from config import database, s3_client, settings
 from datetime import timedelta, datetime
 import logging
 
@@ -17,17 +16,14 @@ def diary_entry_helper(entry) -> dict:
 
     if file_path:
         try:
-            # logger.info(f"Attempting to generate signed URL for: {file_path}")
-            # logger.info(f"Bucket: {bucket.name}")
-
-            blob = bucket.blob(file_path)
-            image_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=15),
-                method="GET",
+            # generate_presigned_url is a local HMAC computation — no network call, safe to call sync.
+            image_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": settings.S3_BUCKET_NAME, "Key": file_path},
+                ExpiresIn=900  # 15 minutes
             )
         except Exception as e:
-            logger.error(f"FAILED to generate signed URL: {str(e)}")
+            logger.error(f"FAILED to generate presigned URL: {str(e)}")
             logger.error(f"Error type: {type(e).__name__}")
             image_url = None
     
@@ -59,15 +55,13 @@ def photo_helper(photo) -> dict:
 
     if file_path:
         try:
-            blob = bucket.blob(file_path)
-            photo_url = blob.generate_signed_url(
-                version="v4",
-                expiration=timedelta(minutes=15),
-                method="GET",
+            photo_url = s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": settings.S3_BUCKET_NAME, "Key": file_path},
+                ExpiresIn=900  # 15 minutes
             )
-            # print(f"Generated signed URL: {photo_url}")  # Add this debug line
         except Exception as e:
-            print(f"Error generating signed URL: {e}")  # Add this debug line
+            logger.error(f"Error generating presigned URL: {e}")
             photo_url = None
     
     return {

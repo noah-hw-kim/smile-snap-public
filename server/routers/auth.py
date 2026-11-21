@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
-import requests
+import httpx
 from config import FIREBASE_SIGN_IN_URL
 import logging
 from services.db_services import get_user_by_id
@@ -24,35 +24,36 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     logger = logging.getLogger(__name__)
     
     try:
-        response = requests.post(FIREBASE_SIGN_IN_URL, json=payload, timeout=10)
-        response.raise_for_status() # Raise an exception for bad status codes
-        firebase_data = response.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.post(FIREBASE_SIGN_IN_URL, json=payload, timeout=10)
+            response.raise_for_status()
+            firebase_data = response.json()
 
-        firebase_uid = firebase_data.get("localId")
-        id_token = firebase_data.get("idToken")
+            firebase_uid = firebase_data.get("localId")
+            id_token = firebase_data.get("idToken")
 
-        if not firebase_uid or not id_token:
-            raise HTTPException(status_code=500, detail="Invalid response from auth service")
+            if not firebase_uid or not id_token:
+                raise HTTPException(status_code=500, detail="Invalid response from auth service")
 
-        user_from_db = await get_user_by_id(firebase_uid) 
-        if not user_from_db:
-             raise HTTPException(status_code=404, detail="User not found in application database")
+            user_from_db = await get_user_by_id(firebase_uid) 
+            if not user_from_db:
+                raise HTTPException(status_code=404, detail="User not found in application database")
 
-        print(user_from_db)
 
-        # 3. Return both the token and the user data
-        return {
-            "access_token": id_token,
-            "token_type": "bearer",
-            "user": {
-                "userId": user_from_db["userId"],
-                "email": user_from_db["email"],
-                "displayName": user_from_db["displayName"],
-                "role": user_from_db["role"] # ✅ Now the role is included
+            # 3. Return both the token and the user data
+            return {
+                "access_token": id_token,
+                "token_type": "bearer",
+                "user": {
+                    "userId": user_from_db["userId"],
+                    "email": user_from_db["email"],
+                    "displayName": user_from_db["displayName"],
+                    "role": user_from_db["role"] # ✅ Now the role is included
+                }
             }
-        }
         
-    except requests.exceptions.HTTPError as e:
+    except httpx.HTTPStatusError as e:
+        # httpx raises HTTPStatusError on 4xx/5xx responses from raise_for_status()
         logger.error(f"Firebase auth error: {str(e)}")
 
         # Don't expose internal errors to client

@@ -1,10 +1,14 @@
 import asyncio
-import requests
+import httpx
 from fastapi import Request, UploadFile, HTTPException
 import uuid
-from config import OPENWEATHER_API_URL, ipinfo_handler, WEATHER_API_KEY, EXTERNAL_IP_SERVICE, gemini_client, BUCKET_NAME, bucket
+from config import settings, ipinfo_handler, gemini_client, s3_client
 from PIL import Image
 from io import BytesIO
+
+# Hardcoded service URLs — these never change between environments
+_EXTERNAL_IP_SERVICE = "https://httpbin.org/ip"
+_OPENWEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 def get_client_ip(request: Request) -> str:
     """
@@ -26,7 +30,7 @@ def get_client_ip(request: Request) -> str:
         
     return request.client.host
 
-def get_api_ready_ip(request: Request) -> str:
+async def get_api_ready_ip(request: Request) -> str:
     """
     Get IP address suitable for external API calls
     Falls back to public IP for local testing
@@ -38,44 +42,53 @@ def get_api_ready_ip(request: Request) -> str:
         str: IP address suitable for external APIs
     """
     actual_ip = get_client_ip(request)
+
+    # Check if we are running locally based on the .env file
+    is_development = settings.ENVIRONMENT == "development"
+
+    is_local_ip = actual_ip in ["127.0.0.1", "::1"] or actual_ip.startswith(("192.168.", "10.", "172."))
     
     # For local testing, get your public IP
-    if actual_ip in ["127.0.0.1", "::1"] or actual_ip.startswith(("192.168.", "10.", "172.")):
+    if is_development and is_local_ip:
         try:
-            # Fallback to your public IP for testing external APIs
-            response = requests.get(EXTERNAL_IP_SERVICE, timeout=5)
-            public_ip = response.json().get("origin")
-            return public_ip
-        except:
-            # If that fails, return the local IP anyway
+            async with httpx.AsyncClient() as client:
+                response = await client.get(_EXTERNAL_IP_SERVICE, timeout=5)
+                response.raise_for_status()
+                public_ip = response.json().get("origin")
+                return public_ip
+        except Exception as e:
+            print(f"IP Service error: {e}")
             return actual_ip
     
     return actual_ip
 
-def get_weather_from_coordinates(lat, lon):
+async def get_weather_from_coordinates(lat, lon):
+    # OpenWeather API endpoint for current weather
+    
     # Parameters for the API request
     params = {
         "lat": lat,
         "lon": lon,
-        "appid": WEATHER_API_KEY,
+        "appid": settings.WEATHER_API_KEY,
         "units": "metric"  # Use Celsius, change to "imperial" for Fahrenheit
     }
     try:
         # Make the API request
-        response = requests.get(OPENWEATHER_API_URL, params=params, timeout=10)
-        response.raise_for_status()  # Raise an exception for bad status codes
+        async with httpx.AsyncClient() as client:
+            response = await client.get(_OPENWEATHER_API_URL, params=params, timeout=10)
+            response.raise_for_status() 
+            
+            weather_data = response.json()
         
-        weather_data = response.json()
-        
-        # Extract useful information
-        return {
-            "weather": weather_data["weather"][0]["description"],
-            "temperature": weather_data["main"]["temp"],
-            "city": weather_data.get("name", "Unknown"),
-            "country": weather_data["sys"]["country"]
-            # "raw_data": weather_data  # Include full response for debugging
-        }
-        
+            # Extract useful information
+            return {
+                "weather": weather_data["weather"][0]["description"],
+                "temperature": weather_data["main"]["temp"],
+                "city": weather_data.get("name", "Unknown"),
+                "country": weather_data["sys"]["country"]
+                # "raw_data": weather_data  # Include full response for debugging
+            }
+
     except Exception as e:
         print(f"Weather API error: {e}")
         return {}
@@ -119,9 +132,13 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
     Based on the provided context and the attached screenshot, write your diary entry.
     """
     try:
-        blob = bucket.blob(file_path)
-        img_bytes = await asyncio.to_thread(blob.download_as_bytes)
-        
+        # 1. Download image bytes from S3
+        s3_response = await asyncio.to_thread(
+            s3_client.get_object,
+            Bucket=settings.S3_BUCKET_NAME,
+            Key=file_path
+        )
+        img_bytes = s3_response["Body"].read()
         img = Image.open(BytesIO(img_bytes))
 
         # 2. Build cleaner context strings
@@ -130,15 +147,15 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
             location_str = f"{location_data['city']}, {location_data.get('region', '')}"
 
         weather_str = "Not available"
-        if weather_data and weather_data.get('description'):
-            weather_str = f"{weather_data['description']}, {weather_data.get('temperature')}°F"
+        if weather_data and weather_data.get('weather'):
+            weather_str = f"{weather_data['weather']}, {weather_data.get('temperature')}°C"
         
         # 3. Format the new, smarter prompt
         full_prompt = new_prompt.format(location_str=location_str, weather_str=weather_str)
         
         # 4. Initialize the model and generate content
-        response = gemini_client.models.generate_content(
-            model='gemini-2.5-flash',
+        response = await gemini_client.aio.models.generate_content(
+            model='gemini-2.5-flash-lite',
             contents=[
                 # types.Part.from_bytes(
                 #     data=img_bytes,
@@ -155,11 +172,12 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
         print(f"Error generating diary entry: {e}")
         return "Captured a beautiful smile today! 😊"
 
-def get_location_from_ip(ip_address):
+async def get_location_from_ip(ip_address):
     try:
         if not ip_address:
             return None
-        details = ipinfo_handler.getDetails(ip_address)
+
+        details = await asyncio.to_thread(ipinfo_handler.getDetails, ip_address)
         return details.all
     
     except Exception as e:
@@ -168,9 +186,9 @@ def get_location_from_ip(ip_address):
 
 # 1. Get IP and location information
 async def get_contextual_data(request: Request) -> dict:
-    ip_info = get_api_ready_ip(request)
-    # print("ip: ", ip_info)
-    location_raw = get_location_from_ip(ip_info)
+    ip_info = await get_api_ready_ip(request)
+    location_raw = await get_location_from_ip(ip_info)
+
     # Only keep city, region, country, lat, lon
     location_data = {
         "city": location_raw.get("city") if location_raw else None,
@@ -183,7 +201,7 @@ async def get_contextual_data(request: Request) -> dict:
     # 2. Get weather data if lat/lon available
     weather_data = {"weather": None, "temperature": None}
     if location_data["lat"] and location_data["lon"]:
-        raw_weather = get_weather_from_coordinates(location_data["lat"], location_data["lon"])
+        raw_weather = await get_weather_from_coordinates(location_data["lat"], location_data["lon"])
         # Only keep weather and temperature
         if raw_weather:
             weather_data = {
@@ -193,26 +211,20 @@ async def get_contextual_data(request: Request) -> dict:
 
     return {"location": location_data, "weather": weather_data}
 
-# 3. Upload image to Google Cloud Storage
-async def upload_image_to_gcs(userId: str, image: UploadFile) -> str:
-    if not BUCKET_NAME:
-        raise HTTPException(status_code=500, detail="BUCKET_NAME environment variable not set")
-
-    # Generate unique filename
-    # --- Your existing GCS upload logic ---
+# 3. Upload image to S3
+async def upload_image_to_s3(userId: str, image: UploadFile) -> str:
+    """Uploads an image to S3 and returns the S3 object key (file path)."""
     unique_filename = f"screenshots/{userId}/{uuid.uuid4()}.png"
-    
     try:
-        # storage_client = storage.Client(project=PROJECT_ID)
-        # bucket = storage_client.bucket(BUCKET_NAME)
-        blob = bucket.blob(unique_filename)
-        
         content = await image.read()
-        blob.upload_from_string(content, content_type=image.content_type)
-        
-        # Return the full GCS URL for consistency
+        await asyncio.to_thread(
+            s3_client.put_object,
+            Bucket=settings.S3_BUCKET_NAME,
+            Key=unique_filename,
+            Body=content,
+            ContentType=image.content_type or "image/png"
+        )
         return unique_filename
-    
     except Exception as e:
-        print(f"Error uploading to GCS: {e}")
+        print(f"Error uploading to S3: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload image")

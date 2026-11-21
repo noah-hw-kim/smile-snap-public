@@ -1,5 +1,7 @@
 # Environment variables (contains API keys)
 .env
+.env.*
+!.env.example
 
 # Python
 __pycache__/
@@ -41,8 +43,22 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# Project specific
+# Project specific — service account keys (any naming convention)
+serviceAccountKey.json
+*firebase-adminsdk*.json
+*service-account*.json
+*serviceaccount*.json
+
+# Images
 smile_*.jpg
 *.jpg
 *.png
-serviceAccountKey.json
+
+# Test / coverage
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Serverless Deployments
+deployment.zip
+package/
