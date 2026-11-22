@@ -74,7 +74,7 @@ Smile Snap is a personal AI-powered diary generator built on FastAPI, Firebase A
 
 *(Fill these in once they are verified in Active Roadmap Steps 2–6.)*
 - Run locally: `cd server && uvicorn main:app --reload` *(unverified)*
-- Tests: `cd server && pytest` *(test suite not yet written)*
+- Tests: `cd server && ../venv/bin/pytest` *(or `cd server && pytest` with `venv` activated — verified)*
 - Lint: `ruff check server/` *(not yet configured)*
 
 ## Project State & Conventions
