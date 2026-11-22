@@ -76,21 +76,6 @@ async def get_accessible_photo(photoId: str, current_user: dict = Depends(get_cu
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error accessing photo: {str(e)}")
 
-def verify_firebase_token(token: str) -> dict:
-    """
-    Verify Firebase ID token and return user data
-    """
-    try:
-        # Method 1: Using Firebase Admin SDK (recommended)
-        decoded_token = auth.verify_id_token(token)
-        return {
-            "userId": decoded_token["uid"],
-            "email": decoded_token["email"],
-            "role": decoded_token.get("role", "user")  # You may need to set custom claims
-        }
-    except Exception as e:
-        raise HTTPException(status_code=401, detail="Invalid token")
-
 # async def verify_ownership_or_admin_form(
 #     userId: str = Form(...),
 #     current_user: dict = Depends(get_current_user)

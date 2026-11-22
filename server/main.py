@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import users, entries, screenshots, auth, websockets, admin
+from routers import users, entries, screenshots, auth, admin
 from mangum import Mangum
 import firebase_admin
 from firebase_admin import credentials
@@ -42,7 +42,6 @@ app.include_router(users.router)
 app.include_router(entries.router)
 app.include_router(screenshots.router)
 app.include_router(auth.router)
-app.include_router(websockets.router)
 app.include_router(admin.router)
 
 @app.get("/")

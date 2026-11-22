@@ -6,7 +6,6 @@ from database import photo_collection, photo_helper
 from models import Photo
 from typing import List
 import logging
-from .websockets import manager
 import traceback
 
 logger = logging.getLogger(__name__)
@@ -62,10 +61,6 @@ async def upload_screenshot(
         # logger.info(f"Final photoUrl: {photo_metadata.get('photoUrl', 'NOT_SET')}")
         # logger.info(f"=== UPLOAD SUCCESS ===")
         
-        message = {"type": "photo_created", "data": photo_metadata}
-        await manager.send_to_user(message, userId)
-        await manager.broadcast_to_admins(message)
-        
         return {
             "photoId": photo_metadata["photoId"],
             "photoUrl": photo_metadata["photoUrl"]
@@ -95,9 +90,6 @@ async def delete_photo(
     success = await delete_photo_service(userId, photoId)
     try:
         if success:
-            message = {"type": "photo_deleted", "data": {"photoId": photoId, "userId": userId}}
-            await manager.send_to_user(message, userId)
-            await manager.broadcast_to_admins(message)
             return Response(status_code=status.HTTP_204_NO_CONTENT)
         raise HTTPException(status_code=404, detail=f"Photo {photoId} not found")
     except Exception as e:
@@ -136,10 +128,6 @@ async def generate_from_screenshot(
         }
         diary_entry = await create_diary_entry_service(userId, entry_to_create)
         print("create_diary_entry_service completed")
-
-        message = {"type": "entry_created", "data": diary_entry}
-        await manager.send_to_user(message, userId)
-        await manager.broadcast_to_admins(message)
         
         return {
             "status": "success",

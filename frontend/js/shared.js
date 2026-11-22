@@ -6,7 +6,6 @@ let state = {
     userId: null,
     email: null,
     role: null,
-    ws: null,
     currentViewUserId: null
 };
 
@@ -33,7 +32,7 @@ function initializeAuth() {
 
 // Clear authentication
 function clearAuth() {
-    state = { token: null, userId: null, email: null, role: null, ws: null, currentViewUserId: null };
+    state = { token: null, userId: null, email: null, role: null, currentViewUserId: null };
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
 }
@@ -137,46 +136,8 @@ function setLoading(button, isLoading, originalText = 'Submit') {
 
 // Logout function
 function logout() {
-    if (state.ws) state.ws.close();
     clearAuth();
     window.location.href = 'index.html';
-}
-
-// WebSocket helper
-function connectWebSocket(userId = null) {
-    if (state.ws && state.ws.readyState === WebSocket.OPEN) return;
-    
-    const connectUserId = userId || state.userId;
-    const wsUrl = `${WS_BASE_URL}/ws/updates/${connectUserId}?token=${encodeURIComponent(state.token)}`;
-    
-    console.log('🔴 Connecting WebSocket for user:', connectUserId);
-    
-    state.ws = new WebSocket(wsUrl);
-    
-    state.ws.onopen = () => {
-        const wsStatus = document.getElementById('wsStatus');
-        if (wsStatus) {
-            wsStatus.textContent = 'WebSocket: Connected';
-            wsStatus.className = 'badge bg-success';
-        }
-        console.log('🔴 WebSocket connected successfully');
-    };
-    
-    state.ws.onclose = (event) => {
-        const wsStatus = document.getElementById('wsStatus');
-        if (wsStatus) {
-            wsStatus.textContent = `WebSocket: Disconnected (${event.reason || 'Unknown'})`;
-            wsStatus.className = 'badge bg-danger';
-        }
-        console.log('🔴 WebSocket disconnected:', event.reason);
-    };
-    
-    state.ws.onerror = (error) => {
-        console.error('🔴 WebSocket Error:', error);
-        showAlert('WebSocket connection error.', 'warning');
-    };
-    
-    return state.ws;
 }
 
 // Initialize auth on load

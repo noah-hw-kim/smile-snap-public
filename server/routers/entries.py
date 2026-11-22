@@ -5,7 +5,6 @@ from database import diary_collection, diary_entry_helper
 from services.db_services import delete_diary_entry_service, update_diary_entry_service
 from dependencies import verify_ownership_or_admin
 from datetime import datetime, timezone
-from .websockets import manager
 
 router = APIRouter(
     prefix="/users/{userId}/entries",
@@ -76,10 +75,6 @@ async def update_user_entry(
     
     updated_entry = await update_diary_entry_service(entryId, userId, entry_dict)
 
-    message = {"type": "entry_updated", "data": updated_entry}
-    await manager.broadcast_to_admins(message)
-    await manager.send_to_user(message, userId)
-
     return updated_entry
 
 @router.delete("/{entryId}")
@@ -91,10 +86,6 @@ async def delete_user_entry(
     success = await delete_diary_entry_service(entryId, userId)
     if not success:
         raise HTTPException(status_code=404, detail="Entry not found")
-    
-    message = {"type": "entry_deleted", "data": {"entryId": entryId, "userId": userId}}
-    await manager.broadcast_to_admins(message)
-    await manager.send_to_user(message, userId)
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

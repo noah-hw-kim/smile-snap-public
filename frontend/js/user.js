@@ -21,9 +21,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchUserPhotos();
     fetchUserEntries();
     
-    // Connect WebSocket
-    connectUserWebSocket();
-    
     // Set up event listeners
     setupUserEventListeners();
 });
@@ -194,11 +191,6 @@ async function deleteAccount() {
         // Clear all local data
         clearAuth();
         
-        // Close WebSocket connection
-        if (state.ws) {
-            state.ws.close();
-        }
-        
         // Show success message and redirect
         showAlert('Your account and all associated data have been permanently deleted.', 'success');
         setTimeout(() => {
@@ -208,36 +200,6 @@ async function deleteAccount() {
     } catch (error) {
         console.error('Account deletion failed:', error);
         showAlert('Failed to delete account. Please try again.', 'danger');
-    }
-}
-
-function connectUserWebSocket() {
-    const ws = connectWebSocket();
-    
-    if (ws) {
-        ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            console.log('🔴 User received real-time update:', message);
-            
-            const messageUserId = message.userId || (message.data && message.data.userId);
-            
-            // For admins: only update if viewing the user who made the change
-            // For regular users: always update (they can only see their own data)
-            const shouldUpdate = state.role === 'admin' 
-                ? (state.currentViewUserId === messageUserId || !state.currentViewUserId)
-                : true;
-            
-            if (shouldUpdate) {
-                setTimeout(() => {
-                    if (message.type === 'photo_created' || message.type === 'photo_deleted') {
-                        fetchUserPhotos();
-                    }
-                    if (message.type === 'entry_created' || message.type === 'entry_deleted' || message.type === 'entry_updated') {
-                        fetchUserEntries();
-                    }
-                }, 2000);
-            }
-        };
     }
 }
 
@@ -264,6 +226,7 @@ function setupUserEventListeners() {
                 await apiFetch('/screenshots/upload', { method: 'POST', body: formData });
                 showAlert('Photo uploaded successfully!', 'success');
                 e.target.reset();
+                await fetchUserPhotos();
             } catch (error) {
                 console.error('Upload failed:', error);
             } finally {
@@ -316,6 +279,7 @@ async function handleUserClicks(e) {
         try {
             await apiFetch(`/screenshots/${photoId}/generate`, { method: 'POST' });
             showAlert('Diary entry generated successfully!', 'success');
+            await fetchUserEntries();
         } catch (error) {
             console.error('Generation failed:', error);
         } finally {
@@ -330,6 +294,7 @@ async function handleUserClicks(e) {
             try {
                 await apiFetch(`/screenshots/${photoId}`, { method: 'DELETE' });
                 showAlert('Photo deleted successfully', 'info');
+                await fetchUserPhotos();
             } catch (error) {
                 console.error('Delete failed:', error);
             }
@@ -343,6 +308,7 @@ async function handleUserClicks(e) {
             try {
                 await apiFetch(`/users/${state.userId}/entries/${entryId}`, { method: 'DELETE' });
                 showAlert('Entry deleted successfully', 'info');
+                await fetchUserEntries();
             } catch (error) {
                 console.error('Delete failed:', error);
             }
@@ -395,17 +361,7 @@ async function handleUserClicks(e) {
         
         try {
             await updateEntry(entryId, newContent);
-            
-            // Update the display content
-            const contentDisplay = document.getElementById(`content-display-${entryId}`);
-            const contentEdit = document.getElementById(`content-edit-${entryId}`);
-            const editBtn = document.querySelector(`[data-entry-id="${entryId}"].edit-entry-btn`);
-            
-            contentDisplay.querySelector('p').textContent = newContent;
-            contentDisplay.style.display = 'block';
-            contentEdit.style.display = 'none';
-            editBtn.style.display = 'inline-block';
-            
+            await fetchUserEntries();
         } catch (error) {
             console.error('Save failed:', error);
         } finally {

@@ -13,9 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Fetch and display users
     fetchAllUsers();
     
-    // Connect WebSocket for real-time updates
-    connectAdminWebSocket();
-    
     // Set up event listeners
     setupAdminEventListeners();
     // console.log('🔴 Admin event listeners setup complete');
@@ -175,24 +172,6 @@ async function deleteUser(userId, userEmail) {
         showAlert('User deletion cancelled. You must type "DELETE" exactly.', 'warning');
     }
     return false;
-}
-
-function connectAdminWebSocket() {
-    const ws = connectWebSocket();
-    
-    if (ws) {
-        ws.onmessage = (event) => {
-            const message = JSON.parse(event.data);
-            console.log('🔴 Admin received real-time update:', message);
-            
-            // Refresh user list on user-related changes
-            if (message.type === 'user_deleted' || message.type === 'user_created') {
-                setTimeout(() => {
-                    fetchAllUsers();
-                }, 1000);
-            }
-        };
-    }
 }
 
 function setupAdminEventListeners() {

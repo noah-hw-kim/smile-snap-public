@@ -5,7 +5,6 @@ from database import user_collection, user_helper
 from dependencies import verify_ownership_or_admin, get_current_admin_user
 from services.db_services import create_user_services, get_user_by_id, update_user_service, delete_user_service
 import logging
-from .websockets import manager
 
 router = APIRouter(
     prefix="/users",
@@ -22,8 +21,6 @@ async def create_user(
 ):
     user_dict = user.model_dump()
     created_user = await create_user_services(user_dict)
-
-    await manager.broadcast_to_admins({"type": "user_created", "data": created_user})
 
     return created_user
 
@@ -69,11 +66,6 @@ async def update_user(
     # Only update fields that are provided (not None)
     user_dict = user.model_dump(exclude_unset=True)
     updated_user = await update_user_service(userId, user_dict)
-        
-    # If no changes were made, just return the existing user
-    message = {"type": "user_updated", "data": updated_user}
-    await manager.broadcast_to_admins(message)
-    await manager.send_to_user(message, userId)
 
     return updated_user
 
@@ -85,7 +77,6 @@ async def delete_user(
 ):
     success = await delete_user_service(userId)
     if success:
-        await manager.broadcast_to_admins({"type": "user_deleted", "data": {"userId": userId}})
         return {"message": "User and all associated data deleted successfully", "deletedUserId": userId}
     raise HTTPException(
         status_code=404, 
