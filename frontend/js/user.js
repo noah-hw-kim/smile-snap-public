@@ -95,13 +95,13 @@ function renderPhotos(photos) {
     }
     
     photosList.innerHTML = photos.map(photo => `
-        <div class="list-group-item d-flex justify-content-between align-items-center photo-item" data-photo-id="${photo.photoId}" data-url="${photo.photoUrl}">
-            <img src="${photo.photoUrl}" alt="Screenshot" class="me-3 rounded photo-thumbnail">
+        <div class="list-group-item d-flex justify-content-between align-items-center photo-item" data-photo-id="${escapeHtml(photo.photoId)}" data-url="${escapeHtml(photo.photoUrl)}">
+            <img src="${escapeHtml(photo.photoUrl)}" alt="Screenshot" class="me-3 rounded photo-thumbnail">
             <span class="flex-grow-1 small">${new Date(photo.createdAt).toLocaleString()}</span>
             <div class="action-buttons">
                 ${!state.currentViewUserId ? `
-                    <button class="btn btn-sm btn-primary generate-btn" data-photo-id="${photo.photoId}">Generate</button>
-                    <button class="btn btn-sm btn-danger delete-photo-btn" data-photo-id="${photo.photoId}">Delete</button>
+                    <button class="btn btn-sm btn-primary generate-btn" data-photo-id="${escapeHtml(photo.photoId)}">Generate</button>
+                    <button class="btn btn-sm btn-danger delete-photo-btn" data-photo-id="${escapeHtml(photo.photoId)}">Delete</button>
                 ` : ''}
             </div>
         </div>
@@ -125,20 +125,20 @@ function renderEntries(entries) {
         <div class="card mb-3 entry-item" data-entry-id="${entry.entryId}">
             <div class="row g-0">
                 <div class="col-md-4">
-                    <img src="${entry.imageUrl}" class="img-fluid rounded-start entry-image-clickable" alt="Entry image">
+                    <img src="${escapeHtml(entry.imageUrl)}" class="img-fluid rounded-start entry-image-clickable" alt="Entry image">
                 </div>
                 <div class="col-md-8">
                     <div class="card-body">
                         <!-- Content Display -->
                         <div class="content-display" id="content-display-${entry.entryId}">
-                            <p class="card-text">${entry.content}</p>
+                            <p class="card-text">${escapeHtml(entry.content)}</p>
                         </div>
                         
                         <!-- Content Edit Form (Only show for non-admin viewing) -->
                         ${!state.currentViewUserId ? `
                         <div class="content-edit" id="content-edit-${entry.entryId}" style="display: none;">
                             <div class="mb-3">
-                                <textarea class="form-control" id="edit-content-${entry.entryId}" rows="4">${entry.content}</textarea>
+                                <textarea class="form-control" id="edit-content-${entry.entryId}" rows="4">${escapeHtml(entry.content)}</textarea>
                             </div>
                             <div class="btn-group btn-group-sm">
                                 <button class="btn btn-success save-entry-btn" data-entry-id="${entry.entryId}">Save</button>

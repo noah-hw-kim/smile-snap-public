@@ -47,15 +47,15 @@ function renderUsersList(users) {
     }
     
     usersList.innerHTML = users.map(user => `
-        <div class="card mb-2 user-item" data-user-id="${user.userId}">
+        <div class="card mb-2 user-item" data-user-id="${escapeHtml(user.userId)}">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start">
                     <div class="flex-grow-1" style="cursor: pointer;" onclick="viewUser('${user.userId}')">
-                        <h6 class="mb-1">${user.displayName}</h6>
-                        <p class="mb-1"><strong>Email:</strong> ${user.email}</p>
+                        <h6 class="mb-1">${escapeHtml(user.displayName)}</h6>
+                        <p class="mb-1"><strong>Email:</strong> ${escapeHtml(user.email)}</p>
                         <p class="mb-1">
                             <strong>Role:</strong> 
-                            <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">${user.role}</span>
+                            <span class="badge ${user.role === 'admin' ? 'bg-danger' : 'bg-primary'}">${escapeHtml(user.role)}</span>
                         </p>
                         <p class="mb-0">
                             <small class="text-muted">
@@ -68,8 +68,8 @@ function renderUsersList(users) {
                             <i class="bi bi-eye"></i> View
                         </button>
                         <button class="btn btn-sm btn-danger delete-user-btn" 
-                                data-user-id="${user.userId}" 
-                                data-user-email="${user.email}">
+                                data-user-id="${escapeHtml(user.userId)}" 
+                                data-user-email="${escapeHtml(user.email)}">
                             <i class="bi bi-trash"></i> Delete
                         </button>
                     </div>

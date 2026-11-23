@@ -111,13 +111,24 @@ async function apiFetch(endpoint, options = {}) {
     }
 }
 
+// Escape user-controlled text before inserting it into innerHTML.
+// Prevents stored XSS (e.g. a displayName like <img src=x onerror=...>).
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
 // UI Utilities
 function showAlert(message, type = 'danger') {
     const alertContainer = document.getElementById('alertContainer');
     if (alertContainer) {
         alertContainer.innerHTML = `
             <div class="alert alert-${type} alert-dismissible fade show" role="alert">
-                ${message}
+                ${escapeHtml(message)}
                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
             </div>
         `;
