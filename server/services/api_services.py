@@ -5,6 +5,12 @@ import httpx
 from fastapi import Request, UploadFile, HTTPException
 import uuid
 from config import settings, ipinfo_handler, gemini_client, s3_client
+from services.cache_services import (
+    GEO_CACHE_TTL_SECONDS,
+    WEATHER_CACHE_TTL_SECONDS,
+    cache_get_json,
+    cache_set_json,
+)
 from PIL import Image
 from io import BytesIO
 
@@ -70,29 +76,38 @@ async def get_weather_from_coordinates(lat, lon):
     if not settings.WEATHER_API_KEY:
         return {}
 
-    # Parameters for the API request
-    params = {
-        "lat": lat,
-        "lon": lon,
-        "appid": settings.WEATHER_API_KEY,
-        "units": "metric"  # Use Celsius, change to "imperial" for Fahrenheit
-    }
     try:
+        cache_key = f"smilesnap:weather:{float(lat):.2f}:{float(lon):.2f}"
+        cached = await cache_get_json(cache_key)
+        if cached is not None:
+            logger.info("Weather cache hit for %s", cache_key)
+            return cached
+
+        # Parameters for the API request
+        params = {
+            "lat": lat,
+            "lon": lon,
+            "appid": settings.WEATHER_API_KEY,
+            "units": "metric"  # Use Celsius, change to "imperial" for Fahrenheit
+        }
+
         # Make the API request
         async with httpx.AsyncClient() as client:
             response = await client.get(_OPENWEATHER_API_URL, params=params, timeout=10)
-            response.raise_for_status() 
-            
+            response.raise_for_status()
+
             weather_data = response.json()
-        
+
             # Extract useful information
-            return {
+            result = {
                 "weather": weather_data["weather"][0]["description"],
                 "temperature": weather_data["main"]["temp"],
                 "city": weather_data.get("name", "Unknown"),
                 "country": weather_data["sys"]["country"]
                 # "raw_data": weather_data  # Include full response for debugging
             }
+            await cache_set_json(cache_key, result, WEATHER_CACHE_TTL_SECONDS)
+            return result
 
     except Exception as e:
         logger.warning("Weather API error: %s", e)
@@ -188,9 +203,17 @@ async def get_location_from_ip(ip_address):
         if not ip_address or ipinfo_handler is None:
             return None
 
+        cache_key = f"smilesnap:geo:{ip_address}"
+        cached = await cache_get_json(cache_key)
+        if cached is not None:
+            logger.info("Geolocation cache hit for %s", cache_key)
+            return cached
+
         details = await asyncio.to_thread(ipinfo_handler.getDetails, ip_address)
+        if details.all:
+            await cache_set_json(cache_key, details.all, GEO_CACHE_TTL_SECONDS)
         return details.all
-    
+
     except Exception as e:
         logger.warning("Error getting location for IP %s: %s", ip_address, e)
         return None

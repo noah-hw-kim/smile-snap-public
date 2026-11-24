@@ -13,6 +13,7 @@ TEST_ENV = {
     "GCP_SERVICE_ACCOUNT_JSON": "{}",
     "AWS_DEFAULT_REGION": "us-east-1",
     "ENVIRONMENT": "test",
+    "REDIS_URL": "",
 }
 
 for key, value in TEST_ENV.items():

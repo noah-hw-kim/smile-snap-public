@@ -33,6 +33,11 @@ class Settings(BaseSettings):
     # App
     ENVIRONMENT: str = Field(default="production")
 
+    # Redis (optional — leave blank to disable caching and rate limiting)
+    REDIS_URL: str = Field(default="")
+    GENERATE_RATE_LIMIT: int = Field(default=10, ge=1)
+    GENERATE_RATE_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+
 
 settings = Settings()
 

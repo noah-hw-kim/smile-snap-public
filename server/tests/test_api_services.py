@@ -79,3 +79,53 @@ async def test_generate_diary_entry_raises_502_on_failure(monkeypatch, side_effe
 
     assert exc_info.value.status_code == 502
     assert exc_info.value.detail == "Failed to generate diary entry"
+
+
+async def test_get_location_from_ip_returns_cached_value_without_calling_ipinfo(monkeypatch):
+    """Cache hit in get_location_from_ip must return cached dict without calling ipinfo."""
+    cached_geo = {"city": "Seoul", "region": "Seoul", "country": "KR"}
+    mock_handler = MagicMock()
+    mock_handler.getDetails = MagicMock(side_effect=AssertionError("ipinfo should not be called on cache hit"))
+
+    monkeypatch.setattr(api_services, "ipinfo_handler", mock_handler)
+    monkeypatch.setattr(api_services, "cache_get_json", AsyncMock(return_value=cached_geo))
+    mock_cache_set = AsyncMock()
+    monkeypatch.setattr(api_services, "cache_set_json", mock_cache_set)
+
+    result = await api_services.get_location_from_ip("8.8.8.8")
+
+    assert result == cached_geo
+    mock_cache_set.assert_not_awaited()
+
+
+async def test_get_weather_from_coordinates_caches_rounded_key_on_miss(monkeypatch):
+    """Cache miss in get_weather_from_coordinates fetches OpenWeather and stores rounded cache key."""
+    fake_response = MagicMock()
+    fake_response.raise_for_status = MagicMock()
+    fake_response.json.return_value = {
+        "weather": [{"description": "clear sky"}],
+        "main": {"temp": 21.5},
+        "name": "Seoul",
+        "sys": {"country": "KR"},
+    }
+    mock_http_client = MagicMock()
+    mock_http_client.get = AsyncMock(return_value=fake_response)
+    mock_client_cm = MagicMock()
+    mock_client_cm.__aenter__ = AsyncMock(return_value=mock_http_client)
+    mock_client_cm.__aexit__ = AsyncMock(return_value=False)
+
+    monkeypatch.setattr(api_services.settings, "WEATHER_API_KEY", "test-weather-key")
+    monkeypatch.setattr(api_services.httpx, "AsyncClient", MagicMock(return_value=mock_client_cm))
+    monkeypatch.setattr(api_services, "cache_get_json", AsyncMock(return_value=None))
+    mock_cache_set = AsyncMock()
+    monkeypatch.setattr(api_services, "cache_set_json", mock_cache_set)
+
+    result = await api_services.get_weather_from_coordinates(37.5665, 126.978)
+
+    expected = {"weather": "clear sky", "temperature": 21.5, "city": "Seoul", "country": "KR"}
+    assert result == expected
+    mock_cache_set.assert_awaited_once_with(
+        "smilesnap:weather:37.57:126.98",
+        expected,
+        api_services.WEATHER_CACHE_TTL_SECONDS,
+    )

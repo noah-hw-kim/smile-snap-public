@@ -4,10 +4,12 @@ from typing import List
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from database import get_db, photo_helper
 from dependencies import get_accessible_photo, get_current_user, verify_ownership_or_admin
 from models import Photo
 from services.api_services import generate_diary_entry, get_contextual_data, upload_image_to_s3
+from services.cache_services import check_rate_limit
 from services.db_services import (
     create_diary_entry_service,
     delete_photo_service,
@@ -99,6 +101,19 @@ async def generate_from_screenshot(
     and saves the final entry.
     """
     userId = current_user["userId"]
+
+    allowed, retry_after = await check_rate_limit(
+        f"smilesnap:rl:generate:{userId}",
+        limit=settings.GENERATE_RATE_LIMIT,
+        window_seconds=settings.GENERATE_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded for diary generation. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     logger.info(f"Generating diary entry for photo {photoId} by user {userId}")
 
     try:
