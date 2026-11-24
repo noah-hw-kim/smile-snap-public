@@ -56,14 +56,23 @@ export function EntryCard({
     }
   };
 
+  const locationLabel = entry.location?.city?.trim() || "";
+  const temp = entry.weather?.temperature;
+  const condition = entry.weather?.weather?.trim() || "";
+  const weatherParts = [
+    typeof temp === "number" ? `${Math.round(temp)}°C` : "",
+    condition,
+  ].filter(Boolean);
+  const weatherLabel = weatherParts.join(" ");
+
   return (
-    <div className="card mb-3">
+    <div className="card mb-3 overflow-hidden">
       <div className="row g-0">
         <div className="col-md-4">
           {entry.imageUrl ? (
             <img
               src={entry.imageUrl}
-              className="img-fluid rounded-start entry-image-clickable"
+              className="img-fluid h-100 w-100 entry-image-clickable"
               alt="Entry image"
               onClick={() => window.open(entry.imageUrl!, "_blank", "noopener,noreferrer")}
             />
@@ -75,6 +84,35 @@ export function EntryCard({
         </div>
         <div className="col-md-8">
           <div className="card-body">
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <small className="text-muted">
+                {new Date(entry.createdAt).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+              </small>
+              {entry.mode === "manual" && (
+                <span className="badge rounded-pill ss-badge-sage">Edited</span>
+              )}
+            </div>
+
+            {(locationLabel || weatherLabel) && (
+              <div className="text-muted small d-flex flex-wrap gap-3 mb-2">
+                {locationLabel && (
+                  <span>
+                    <i className="bi bi-geo-alt me-1" />
+                    {locationLabel}
+                  </span>
+                )}
+                {weatherLabel && (
+                  <span>
+                    <i className="bi bi-cloud-sun me-1" />
+                    {weatherLabel}
+                  </span>
+                )}
+              </div>
+            )}
+
             {isEditing && !readOnly ? (
               <div className="mb-2">
                 <div className="mb-3">
@@ -86,17 +124,17 @@ export function EntryCard({
                     disabled={isSaving}
                   />
                 </div>
-                <div className="btn-group btn-group-sm">
+                <div className="d-flex gap-2">
                   <button
                     type="button"
-                    className="btn btn-success"
+                    className="btn btn-primary btn-sm"
                     disabled={isSaving}
                     onClick={handleSave}
                   >
                     {isSaving ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-2" />
-                        Loading...
+                        Saving...
                       </>
                     ) : (
                       "Save"
@@ -104,7 +142,7 @@ export function EntryCard({
                   </button>
                   <button
                     type="button"
-                    className="btn btn-secondary"
+                    className="btn btn-outline-secondary btn-sm"
                     disabled={isSaving}
                     onClick={handleCancelEdit}
                   >
@@ -113,29 +151,26 @@ export function EntryCard({
                 </div>
               </div>
             ) : (
-              <p className="card-text">{entry.content}</p>
+              <p className="card-text ss-entry-text mb-3">{entry.content}</p>
             )}
 
-            <p className="card-text">
-              <small className="text-muted">
-                {new Date(entry.createdAt).toLocaleString()}
-                {entry.mode === "manual" && (
-                  <span className="badge bg-info ms-2">Edited</span>
-                )}
-                {entry.editedAt && (
-                  <>
-                    <br />
-                    Last edited: {new Date(entry.editedAt).toLocaleString()}
-                  </>
-                )}
-              </small>
-            </p>
+            {entry.editedAt && !isEditing && (
+              <p className="card-text mb-2">
+                <small className="text-muted">
+                  Last edited:{" "}
+                  {new Date(entry.editedAt).toLocaleString(undefined, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </small>
+              </p>
+            )}
 
             {!readOnly && !isEditing && (
-              <div className="d-flex gap-1">
+              <div className="d-flex gap-2">
                 <button
                   type="button"
-                  className="btn btn-sm btn-primary"
+                  className="btn btn-sm btn-outline-secondary"
                   disabled={isDeleting}
                   onClick={handleStartEdit}
                 >
@@ -143,7 +178,7 @@ export function EntryCard({
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-danger"
+                  className="btn btn-sm btn-outline-danger"
                   disabled={isDeleting}
                   onClick={handleDelete}
                 >

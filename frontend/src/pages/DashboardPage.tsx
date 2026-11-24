@@ -147,7 +147,7 @@ export function DashboardPage() {
   const handleDeleteAccount = async () => {
     if (!user) return;
     const confirmMessage =
-      `⚠️ WARNING: This action cannot be undone!\n\n` +
+      `WARNING: This action cannot be undone!\n\n` +
       `This will permanently delete:\n` +
       `- Your account (${user.email})\n` +
       `- All your photos\n` +
@@ -187,12 +187,12 @@ export function DashboardPage() {
 
   const subtitle = isAdminReadOnly
     ? "Admin viewing user data"
-    : `${user?.role ?? "user"}: ${user?.email ?? ""}`;
+    : user?.email ?? "";
 
   return (
     <>
       <Navbar
-        title="📱 User Dashboard"
+        title="SmileSnap"
         subtitle={subtitle}
         showBackToAdmin={isAdminReadOnly}
         onLogout={handleLogout}
@@ -204,19 +204,23 @@ export function DashboardPage() {
 
       <div className="container mt-4">
         {isAdminReadOnly ? (
-          <div className="alert alert-info">
-            <h5 className="mb-0">👁️ Viewing User Dashboard (Read Only)</h5>
+          <div className="alert alert-light border d-flex align-items-center gap-2 mb-4">
+            <i className="bi bi-eye text-muted" />
+            <span className="ss-serif fs-5 mb-0">Viewing User Dashboard (Read Only)</span>
           </div>
         ) : (
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">📸 Upload Screenshot</h5>
+              <h5 className="ss-serif mb-0">
+                <i className="bi bi-cloud-upload me-2 text-muted" />
+                Capture a Moment
+              </h5>
             </div>
             <div className="card-body">
               <form onSubmit={handleUpload}>
                 <div className="mb-3">
-                  <label htmlFor="imageFile" className="form-label">
-                    Select Image (Max 10MB)
+                  <label htmlFor="imageFile" className="form-label small text-muted">
+                    Select a screenshot or photo (Max 10MB)
                   </label>
                   <input
                     ref={fileInputRef}
@@ -236,11 +240,12 @@ export function DashboardPage() {
                   {isUploading ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2" />
-                      Loading...
+                      Uploading...
                     </>
                   ) : (
                     <>
-                      <i className="bi bi-cloud-upload" /> Upload
+                      <i className="bi bi-cloud-upload me-2" />
+                      Upload
                     </>
                   )}
                 </button>
@@ -249,14 +254,18 @@ export function DashboardPage() {
           </div>
         )}
 
-        <div className="row">
-          <div className="col-md-6">
+        <div className="row g-4">
+          <div className="col-md-5">
             <div className="card">
               <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">📷 My Photos</h5>
+                <h5 className="ss-serif mb-0">
+                  <i className="bi bi-images me-2 text-muted" />
+                  My Photos
+                </h5>
                 <button
                   type="button"
-                  className="btn btn-sm btn-outline-primary"
+                  className="btn btn-sm btn-outline-secondary"
+                  aria-label="Refresh photos"
                   onClick={() => void fetchPhotos()}
                 >
                   <i className="bi bi-arrow-clockwise" />
@@ -276,15 +285,19 @@ export function DashboardPage() {
             </div>
           </div>
 
-          <div className="col-md-6">
+          <div className="col-md-7">
             <div className="card">
               <div className="card-header d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">📖 Diary Entries</h5>
+                <h5 className="ss-serif mb-0">
+                  <i className="bi bi-journal-text me-2 text-muted" />
+                  Diary Entries
+                </h5>
                 <div className="d-flex align-items-center gap-2">
                   <small className="text-muted">{entries.length} entries</small>
                   <button
                     type="button"
-                    className="btn btn-sm btn-outline-primary"
+                    className="btn btn-sm btn-outline-secondary"
+                    aria-label="Refresh entries"
                     onClick={() => void fetchEntries()}
                   >
                     <i className="bi bi-arrow-clockwise" />
@@ -316,22 +329,26 @@ export function DashboardPage() {
         </div>
 
         {!isAdminReadOnly && (
-          <div className="row mt-4 mb-4">
+          <div className="row mt-4 mb-5">
             <div className="col-12">
-              <div className="card border-danger">
-                <div className="card-header bg-danger text-white">
-                  <h6 className="mb-0">⚠️ Danger Zone</h6>
-                </div>
-                <div className="card-body">
-                  <p className="text-muted mb-3">
-                    Once you delete your account, there is no going back. Please be certain.
-                  </p>
+              <div className="card ss-danger-card">
+                <div className="card-body d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3">
+                  <div>
+                    <h6 className="mb-1 text-danger">
+                      <i className="bi bi-exclamation-triangle me-2" />
+                      Danger Zone
+                    </h6>
+                    <p className="text-muted small mb-0">
+                      Once you delete your account, all photos and diary entries are permanently removed.
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    className="btn btn-danger"
+                    className="btn btn-outline-danger btn-sm flex-shrink-0"
                     onClick={() => void handleDeleteAccount()}
                   >
-                    <i className="bi bi-trash" /> Delete My Account
+                    <i className="bi bi-trash me-1" />
+                    Delete My Account
                   </button>
                 </div>
               </div>

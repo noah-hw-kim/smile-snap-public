@@ -30,13 +30,24 @@ export interface UploadPhotoResponse {
   photoUrl: string | null;
 }
 
+export interface EntryLocation {
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+}
+
+export interface EntryWeather {
+  weather?: string | null;
+  temperature?: number | null;
+}
+
 export interface DiaryEntry {
   entryId: string;
   userId: string;
   content: string;
   imageUrl: string | null;
-  location: Record<string, unknown> | null;
-  weather: Record<string, unknown> | null;
+  location: EntryLocation | null;
+  weather: EntryWeather | null;
   mode: string;
   createdAt: string;
   editedAt: string | null;

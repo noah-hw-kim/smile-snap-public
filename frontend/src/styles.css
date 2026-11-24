@@ -1,17 +1,194 @@
+/* Claude-inspired Warm Parchment & Terracotta theme tokens — tweak these variables to adjust colors/fonts */
+:root {
+  --ss-bg: #F5F4EE;
+  --ss-surface: #FFFFFF;
+  --ss-surface-muted: #ECEAE2;
+  --ss-border: #E2DFD5;
+  --ss-text: #1A1918;
+  --ss-text-muted: #6B6860;
+  --ss-accent: #C96442;
+  --ss-accent-hover: #B55636;
+  --ss-accent-soft: #F8EBE5;
+  --ss-danger: #B8423B;
+  --ss-danger-hover: #9C352F;
+  --ss-danger-soft: #F9E9E8;
+
+  /* Map Bootstrap 5 theme variables to our palette */
+  --bs-body-bg: var(--ss-bg);
+  --bs-body-color: var(--ss-text);
+  --bs-primary: var(--ss-accent);
+  --bs-primary-rgb: 201, 100, 66;
+  --bs-border-color: var(--ss-border);
+  --bs-border-radius: 0.75rem;
+  --bs-font-sans-serif: "Inter", system-ui, -apple-system, sans-serif;
+}
+
+body {
+  background-color: var(--ss-bg);
+  color: var(--ss-text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Typography helpers */
+.ss-serif {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.ss-brand {
+  font-family: "Lora", Georgia, serif;
+  font-weight: 600;
+  font-size: 1.25rem;
+  color: var(--ss-text);
+}
+
+.ss-entry-text {
+  font-family: "Lora", Georgia, serif;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--ss-text);
+}
+
+/* Calm light navbar */
+.ss-navbar {
+  background-color: var(--ss-surface);
+  border-bottom: 1px solid var(--ss-border);
+  padding: 0.85rem 0;
+}
+
+/* Cards & inputs */
+.card {
+  background-color: var(--ss-surface);
+  border: 1px solid var(--ss-border);
+  box-shadow: 0 2px 10px rgba(38, 43, 40, 0.04);
+}
+
+.card-header {
+  background-color: transparent;
+  border-bottom: 1px solid var(--ss-border);
+  padding: 0.9rem 1.25rem;
+}
+
+.form-control {
+  background-color: var(--ss-surface);
+  border-color: var(--ss-border);
+  color: var(--ss-text);
+}
+
+.form-control:focus {
+  border-color: var(--ss-accent);
+  box-shadow: 0 0 0 0.2rem rgba(201, 100, 66, 0.18);
+}
+
+/* Muted sage & clay buttons */
+.btn-primary {
+  --bs-btn-bg: var(--ss-accent);
+  --bs-btn-border-color: var(--ss-accent);
+  --bs-btn-hover-bg: var(--ss-accent-hover);
+  --bs-btn-hover-border-color: var(--ss-accent-hover);
+  --bs-btn-active-bg: var(--ss-accent-hover);
+  --bs-btn-active-border-color: var(--ss-accent-hover);
+  --bs-btn-disabled-bg: var(--ss-accent);
+  --bs-btn-disabled-border-color: var(--ss-accent);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--ss-accent);
+  --bs-btn-border-color: var(--ss-accent);
+  --bs-btn-hover-bg: var(--ss-accent);
+  --bs-btn-hover-border-color: var(--ss-accent);
+  --bs-btn-active-bg: var(--ss-accent);
+  --bs-btn-active-border-color: var(--ss-accent);
+}
+
+.btn-danger {
+  --bs-btn-bg: var(--ss-danger);
+  --bs-btn-border-color: var(--ss-danger);
+  --bs-btn-hover-bg: var(--ss-danger-hover);
+  --bs-btn-hover-border-color: var(--ss-danger-hover);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--ss-danger);
+  --bs-btn-border-color: #E2BEB9;
+  --bs-btn-hover-bg: var(--ss-danger);
+  --bs-btn-hover-border-color: var(--ss-danger);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--ss-text-muted);
+  --bs-btn-border-color: var(--ss-border);
+  --bs-btn-hover-bg: var(--ss-surface-muted);
+  --bs-btn-hover-border-color: var(--ss-border);
+  --bs-btn-hover-color: var(--ss-text);
+}
+
+/* Segmented Login / Register tab toggle */
+.ss-tab-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+  background-color: var(--ss-surface-muted);
+  padding: 0.3rem;
+  border-radius: 0.65rem;
+}
+
+.ss-tab-btn {
+  border: none;
+  background: transparent;
+  color: var(--ss-text-muted);
+  font-weight: 500;
+  font-size: 0.92rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ss-tab-btn.active {
+  background-color: var(--ss-surface);
+  color: var(--ss-text);
+  box-shadow: 0 1px 3px rgba(38, 43, 40, 0.08);
+}
+
+/* Soft tinted status pills */
+.ss-badge-sage {
+  background-color: var(--ss-accent-soft);
+  color: var(--ss-accent);
+  font-weight: 500;
+}
+
+.ss-badge-admin {
+  background-color: var(--ss-danger-soft);
+  color: var(--ss-danger);
+  font-weight: 500;
+}
+
+/* Calm Danger Zone */
+.ss-danger-card {
+  border-color: #E8CFCB;
+}
+
+/* Media & interactive list items */
 .photo-thumbnail {
-  width: 60px;
-  height: 60px;
+  width: 56px;
+  height: 56px;
   object-fit: cover;
 }
 
 .entry-image-clickable {
   cursor: pointer;
-  max-height: 200px;
+  max-height: 210px;
   object-fit: cover;
+}
+
+.photo-item,
+.user-item {
+  transition: background-color 0.15s ease;
 }
 
 .photo-item:hover,
 .user-item:hover {
-  background-color: #f8f9fa;
+  background-color: var(--ss-surface-muted);
   cursor: pointer;
 }

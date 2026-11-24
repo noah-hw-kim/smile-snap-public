@@ -46,7 +46,7 @@ export function AdminPage() {
     }
 
     const confirmMessage =
-      `⚠️ WARNING: This action cannot be undone!\n\n` +
+      `WARNING: This action cannot be undone!\n\n` +
       `This will permanently delete user "${targetUser.email}" and:\n` +
       `- All their photos\n` +
       `- All their diary entries\n` +
@@ -90,9 +90,9 @@ export function AdminPage() {
   return (
     <>
       <Navbar
-        title="👨‍💼 Admin Dashboard"
+        title="SmileSnap"
         variant="danger"
-        subtitle={`Admin: ${user?.email ?? ""}`}
+        subtitle={user?.email ?? ""}
         showUserViewLink
         onLogout={handleLogout}
       />
@@ -101,26 +101,27 @@ export function AdminPage() {
         <AlertBanner alert={alert} onDismiss={() => setAlert(null)} />
       </div>
 
-      <div className="container mt-4">
+      <div className="container mt-4 mb-5">
         <div className="row">
           <div className="col-12">
             <div className="card">
               <div className="card-header d-flex justify-content-between align-items-center">
                 <div>
-                  <h5 className="mb-0">👥 User Management</h5>
-                  <small className="text-muted">Manage all users and their data</small>
+                  <h5 className="ss-serif mb-0">User Management</h5>
+                  <small className="text-muted">Manage registered users and inspect their entries</small>
                 </div>
                 <button
                   type="button"
-                  className="btn btn-primary btn-sm"
+                  className="btn btn-outline-secondary btn-sm"
                   onClick={() => void fetchUsers()}
                 >
-                  <i className="bi bi-arrow-clockwise" /> Refresh
+                  <i className="bi bi-arrow-clockwise me-1" />
+                  Refresh
                 </button>
               </div>
               <div className="card-body">
                 {loading ? (
-                  <div className="text-center">
+                  <div className="text-center py-3">
                     <div className="spinner-border text-primary" role="status">
                       <span className="visually-hidden">Loading users...</span>
                     </div>
@@ -138,51 +139,56 @@ export function AdminPage() {
                               className="flex-grow-1"
                               onClick={() => handleViewUser(targetUser.userId)}
                             >
-                              <h6 className="mb-1">
-                                {targetUser.displayName ?? targetUser.email}
-                              </h6>
-                              <p className="mb-1">
-                                <strong>Email:</strong> {targetUser.email}
-                              </p>
-                              <p className="mb-1">
-                                <strong>Role:</strong>{" "}
+                              <div className="d-flex align-items-center gap-2 mb-1">
+                                <h6 className="mb-0">
+                                  {targetUser.displayName ?? targetUser.email}
+                                </h6>
                                 <span
-                                  className={`badge ${
-                                    targetUser.role === "admin" ? "bg-danger" : "bg-primary"
+                                  className={`badge rounded-pill ${
+                                    targetUser.role === "admin"
+                                      ? "ss-badge-admin"
+                                      : "ss-badge-sage"
                                   }`}
                                 >
                                   {targetUser.role}
                                 </span>
-                              </p>
+                              </div>
+                              <p className="mb-1 small text-muted">{targetUser.email}</p>
                               <p className="mb-0">
                                 <small className="text-muted">
-                                  <i className="bi bi-calendar3" /> Registered:{" "}
-                                  {new Date(targetUser.createdAt).toLocaleString()}
+                                  <i className="bi bi-calendar3 me-1" />
+                                  Registered:{" "}
+                                  {new Date(targetUser.createdAt).toLocaleString(undefined, {
+                                    dateStyle: "medium",
+                                    timeStyle: "short",
+                                  })}
                                 </small>
                               </p>
                             </div>
-                            <div className="ms-3 d-flex flex-column gap-1">
+                            <div className="ms-3 d-flex gap-2">
                               <button
                                 type="button"
-                                className="btn btn-sm btn-outline-primary"
+                                className="btn btn-sm btn-outline-secondary"
                                 onClick={() => handleViewUser(targetUser.userId)}
                               >
-                                <i className="bi bi-eye" /> View
+                                <i className="bi bi-eye me-1" />
+                                View
                               </button>
                               <button
                                 type="button"
-                                className="btn btn-sm btn-danger"
+                                className="btn btn-sm btn-outline-danger"
                                 disabled={isDeleting}
                                 onClick={() => void handleDeleteUser(targetUser)}
                               >
                                 {isDeleting ? (
                                   <>
                                     <span className="spinner-border spinner-border-sm me-2" />
-                                    Loading...
+                                    Deleting...
                                   </>
                                 ) : (
                                   <>
-                                    <i className="bi bi-trash" /> Delete
+                                    <i className="bi bi-trash me-1" />
+                                    Delete
                                   </>
                                 )}
                               </button>

@@ -34,7 +34,7 @@ export function PhotoList({
   };
 
   return (
-    <div className="list-group">
+    <div className="list-group list-group-flush">
       {photos.map((photo) => {
         const isGenerating = generatingPhotoId === photo.photoId;
         const isDeleting = deletingPhotoId === photo.photoId;
@@ -42,7 +42,7 @@ export function PhotoList({
         return (
           <div
             key={photo.photoId}
-            className="list-group-item d-flex justify-content-between align-items-center photo-item"
+            className="list-group-item d-flex justify-content-between align-items-center photo-item px-2"
             onClick={() => openPhoto(photo.photoUrl)}
           >
             {photo.photoUrl ? (
@@ -56,12 +56,15 @@ export function PhotoList({
                 N/A
               </div>
             )}
-            <span className="flex-grow-1 small">
-              {new Date(photo.createdAt).toLocaleString()}
+            <span className="flex-grow-1 small text-muted">
+              {new Date(photo.createdAt).toLocaleString(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
             </span>
             {!readOnly && (
               <div
-                className="d-flex gap-1"
+                className="d-flex gap-2"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -73,7 +76,7 @@ export function PhotoList({
                   {isGenerating ? (
                     <>
                       <span className="spinner-border spinner-border-sm me-2" />
-                      Loading...
+                      Writing...
                     </>
                   ) : (
                     "Generate"
@@ -81,7 +84,7 @@ export function PhotoList({
                 </button>
                 <button
                   type="button"
-                  className="btn btn-sm btn-danger"
+                  className="btn btn-sm btn-outline-danger"
                   disabled={isGenerating || isDeleting}
                   onClick={() => onDelete(photo.photoId)}
                 >
