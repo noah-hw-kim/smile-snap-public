@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from config import FIREBASE_SIGN_IN_URL
+from database import get_db
 import logging
 from services.db_services import get_user_by_id
 
@@ -10,7 +13,10 @@ router = APIRouter(
 )
 
 @router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: AsyncSession = Depends(get_db),
+):
     """
     Takes email (as username) and password, sends them to Firebase,
     and returns the Firebase ID Token.
@@ -35,21 +41,19 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             if not firebase_uid or not id_token:
                 raise HTTPException(status_code=500, detail="Invalid response from auth service")
 
-            user_from_db = await get_user_by_id(firebase_uid) 
+            user_from_db = await get_user_by_id(db, firebase_uid)
             if not user_from_db:
                 raise HTTPException(status_code=404, detail="User not found in application database")
 
-
-            # 3. Return both the token and the user data
             return {
                 "access_token": id_token,
                 "token_type": "bearer",
                 "user": {
-                    "userId": user_from_db["userId"],
-                    "email": user_from_db["email"],
-                    "displayName": user_from_db["displayName"],
-                    "role": user_from_db["role"] # ✅ Now the role is included
-                }
+                    "userId": user_from_db.user_id,
+                    "email": user_from_db.email,
+                    "displayName": user_from_db.display_name,
+                    "role": user_from_db.role,
+                },
             }
         
     except httpx.HTTPStatusError as e:

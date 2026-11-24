@@ -2,7 +2,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 import ipinfo
 from google import genai
-import motor.motor_asyncio
 import boto3
 
 
@@ -11,10 +10,10 @@ import boto3
 # Any required field that is missing will raise a clear error at startup
 # instead of silently returning None deep inside a request.
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     # Database
-    MONGO_DETAILS: str = Field(default="mongodb://localhost:27017")
+    DATABASE_URL: str
 
     S3_BUCKET_NAME: str
 
@@ -35,7 +34,6 @@ settings = Settings()
 
 # ── Derived constants ──────────────────────────────────────────────────────────
 # Keep these as module-level names so no other file needs to change.
-MONGO_DETAILS = settings.MONGO_DETAILS
 S3_BUCKET_NAME = settings.S3_BUCKET_NAME
 GEMINI_API_KEY = settings.GEMINI_API_KEY
 IPINFO_API_TOKEN = settings.IPINFO_API_TOKEN
@@ -51,9 +49,6 @@ OPENWEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 # ── API client initializations ─────────────────────────────────────────────────
 # Clients are created once at startup and shared across the app.
-
-mongo_client = motor.motor_asyncio.AsyncIOMotorClient(MONGO_DETAILS)
-database = mongo_client.smile_snap
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 

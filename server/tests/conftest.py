@@ -4,6 +4,7 @@ import os
 # Setting os.environ directly also prevents pydantic-settings from loading
 # real credentials out of server/.env during unit tests.
 TEST_ENV = {
+    "DATABASE_URL": "postgresql://test:test@localhost:5432/testdb?sslmode=disable",
     "S3_BUCKET_NAME": "test-bucket",
     "GEMINI_API_KEY": "test-gemini-key",
     "IPINFO_API_TOKEN": "test-ipinfo-token",
