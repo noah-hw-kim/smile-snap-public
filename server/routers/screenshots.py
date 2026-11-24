@@ -46,8 +46,20 @@ async def upload_screenshot(
     Handles only the image upload and creates a 'photo' record in the database.
     Uses the authenticated user's ID automatically.
     """
+    userId = current_user["userId"]
+    allowed, retry_after = await check_rate_limit(
+        f"smilesnap:rl:upload:{userId}",
+        limit=settings.UPLOAD_RATE_LIMIT,
+        window_seconds=settings.UPLOAD_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded for photo uploads. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     try:
-        userId = current_user["userId"]
         file_path = await upload_image_to_s3(userId, image)
         photo_metadata = await save_photo_metadata_service(db, userId, file_path)
 

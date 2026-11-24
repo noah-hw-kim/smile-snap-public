@@ -84,3 +84,29 @@ async def test_create_user_services_duplicate_email_returns_400(monkeypatch):
     assert exc_info.value.status_code == 400
     mock_db.add.assert_not_called()
     mock_db.commit.assert_not_awaited()
+
+
+async def test_create_user_route_returns_429_when_signup_rate_limited(monkeypatch):
+    """Public signup route returns HTTP 429 + Retry-After when IP rate limit is exceeded."""
+    from routers import users
+
+    fake_request = MagicMock()
+    fake_request.headers = {"x-forwarded-for": "203.0.113.10"}
+    fake_request.client = None
+
+    monkeypatch.setattr(users, "check_rate_limit", AsyncMock(return_value=(False, 1800)))
+    mock_create = AsyncMock()
+    monkeypatch.setattr(users, "create_user_services", mock_create)
+
+    payload = UserCreate(
+        email="new@example.com",
+        password="secret123",
+        displayName="New User",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        await users.create_user(request=fake_request, user=payload, db=_make_mock_db())
+
+    assert exc_info.value.status_code == 429
+    assert exc_info.value.headers == {"Retry-After": "1800"}
+    mock_create.assert_not_awaited()

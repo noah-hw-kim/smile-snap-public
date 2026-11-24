@@ -19,6 +19,12 @@ logger = logging.getLogger(__name__)
 # Hardcoded service URLs — these never change between environments
 _EXTERNAL_IP_SERVICE = "https://httpbin.org/ip"
 _OPENWEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
+_ALLOWED_IMAGE_TYPES = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+}
 
 def get_client_ip(request: Request) -> str:
     """
@@ -38,7 +44,7 @@ def get_client_ip(request: Request) -> str:
     if real_ip:
         return real_ip
         
-    return request.client.host
+    return request.client.host if request.client else "unknown"
 
 async def get_api_ready_ip(request: Request) -> str:
     """
@@ -247,18 +253,42 @@ async def get_contextual_data(request: Request) -> dict:
 
 # 3. Upload image to S3
 async def upload_image_to_s3(userId: str, image: UploadFile) -> str:
-    """Uploads an image to S3 and returns the S3 object key (file path)."""
-    unique_filename = f"screenshots/{userId}/{uuid.uuid4()}.png"
+    """Validate an uploaded image (MIME type, size, Pillow header) and upload it to S3."""
+    content_type = (image.content_type or "").lower()
+    ext = _ALLOWED_IMAGE_TYPES.get(content_type)
+    if ext is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Only PNG, JPEG, WebP, and GIF images are supported.",
+        )
+
+    content = await image.read(settings.MAX_UPLOAD_BYTES + 1)
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded image file is empty.")
+    if len(content) > settings.MAX_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail="Uploaded image exceeds the maximum allowed size.",
+        )
+
     try:
-        content = await image.read()
+        with Image.open(BytesIO(content)) as img:
+            img.verify()
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid or corrupted image file.")
+
+    unique_filename = f"screenshots/{userId}/{uuid.uuid4()}.{ext}"
+    try:
         await asyncio.to_thread(
             s3_client.put_object,
             Bucket=settings.S3_BUCKET_NAME,
             Key=unique_filename,
             Body=content,
-            ContentType=image.content_type or "image/png"
+            ContentType=content_type,
         )
         return unique_filename
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Error uploading image to S3 for user %s", userId)
         raise HTTPException(status_code=500, detail="Failed to upload image")

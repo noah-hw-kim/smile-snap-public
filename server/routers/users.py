@@ -1,12 +1,15 @@
 import logging
 from typing import List
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from database import get_db, user_helper
 from dependencies import get_current_admin_user, verify_ownership_or_admin
 from models import User, UserCreate, UserUpdate
+from services.api_services import get_client_ip
+from services.cache_services import check_rate_limit
 from services.db_services import (
     create_user_services,
     delete_user_service,
@@ -28,9 +31,23 @@ logger = logging.getLogger(__name__)
 # CREATE User - This is a public endpoint, so no dependency is needed.
 @router.post("/", response_description="Create new user", response_model=User)
 async def create_user(
+    request: Request,
     user: UserCreate = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
+    client_ip = get_client_ip(request)
+    allowed, retry_after = await check_rate_limit(
+        f"smilesnap:rl:signup:{client_ip}",
+        limit=settings.SIGNUP_RATE_LIMIT,
+        window_seconds=settings.SIGNUP_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many signup attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     user_dict = user.model_dump()
     return await create_user_services(db, user_dict)
 

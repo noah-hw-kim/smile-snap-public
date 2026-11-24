@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     REDIS_URL: str = Field(default="")
     GENERATE_RATE_LIMIT: int = Field(default=10, ge=1)
     GENERATE_RATE_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+    SIGNUP_RATE_LIMIT: int = Field(default=5, ge=1)
+    SIGNUP_RATE_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+    UPLOAD_RATE_LIMIT: int = Field(default=10, ge=1)
+    UPLOAD_RATE_WINDOW_SECONDS: int = Field(default=3600, ge=1)
+    MAX_UPLOAD_BYTES: int = Field(default=10 * 1024 * 1024, ge=1)
 
 
 settings = Settings()

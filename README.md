@@ -6,9 +6,9 @@ Smile Snap is a full-stack AI diary application that transforms user-uploaded sc
 
 ## ✨ Features
 
-* **Screenshot-Based Diary**: Users upload screenshots to AWS S3 and view them via short-lived presigned URLs.
+* **Screenshot-Based Diary**: Users upload validated images (PNG, JPEG, WebP, GIF; server-side size limit + Pillow verification) to AWS S3 and view them via short-lived presigned URLs.
 * **AI-Powered Diary Generation**: Uses Google Gemini (`google-genai`) to analyze screenshots alongside optional IP geolocation (IPinfo) and weather (OpenWeatherMap) context.
-* **Redis Caching & Distributed Rate Limiting**: Cache-aside for IP geolocation (24h TTL) and weather lookups (20m TTL), plus per-user atomic fixed-window rate limiting (`INCR` + `EXPIRE ... NX`) on AI diary generation—configured to fail open if Redis is unconfigured or unreachable.
+* **Redis Caching & Distributed Rate Limiting**: Cache-aside for IP geolocation (24h TTL) and weather lookups (20m TTL), plus atomic fixed-window rate limiting (`INCR` + `EXPIRE ... NX`) on signup, uploads, and AI diary generation—configured to fail open if Redis is unconfigured or unreachable.
 * **Secure Authentication & RBAC**: Firebase Authentication ID tokens (JWT) protecting FastAPI routes with `user` and `admin` roles.
 * **User & Admin Dashboards**: React + TypeScript SPA where users upload photos, generate/edit/delete diary entries, or delete their account, and admins inspect users in read-only mode or delete accounts.
 * **Automated CI/CD**: GitHub Actions runs frontend typecheck/Vitest/Vite build and backend Ruff/pytest checks on every push and PR, and deploys Python 3.14 Lambda packages via AWS IAM OIDC on `main`.
@@ -55,7 +55,7 @@ This repository is organized into `server/` (FastAPI backend) and `frontend/` (R
    ```
 3. **Configure environment variables**:
    * Copy `server/.env.example` to `server/.env` and fill in your values. **Never commit `server/.env` or service account keys.**
-   * See `server/.env.example` for `DATABASE_URL`, `S3_BUCKET_NAME`, `FIREBASE_WEB_API_KEY`, `GCP_SERVICE_ACCOUNT_JSON`, `GEMINI_API_KEY`, and optional `IPINFO_API_TOKEN`, `WEATHER_API_KEY`, `REDIS_URL`, `GENERATE_RATE_LIMIT`, and `GENERATE_RATE_WINDOW_SECONDS`.
+   * See `server/.env.example` for `DATABASE_URL`, `S3_BUCKET_NAME`, `FIREBASE_WEB_API_KEY`, `GCP_SERVICE_ACCOUNT_JSON`, `GEMINI_API_KEY`, and optional `IPINFO_API_TOKEN`, `WEATHER_API_KEY`, `REDIS_URL`, `GENERATE_RATE_LIMIT`, `GENERATE_RATE_WINDOW_SECONDS`, `SIGNUP_RATE_LIMIT`, and `UPLOAD_RATE_LIMIT`.
 4. **Run database migrations**:
    ```bash
    cd server && alembic upgrade head
