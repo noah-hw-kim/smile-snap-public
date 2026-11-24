@@ -10,7 +10,7 @@
 
 ## Project Overview & Directory Scope
 
-Smile Snap is a personal AI-powered diary generator built on FastAPI, Firebase Auth, and Google Gemini (`google-genai`), with image storage on AWS S3 (`boto3`), deployed on AWS Lambda via Mangum. The database is being migrated from MongoDB (Motor) to Postgres (Neon), and WebSockets are being removed — see `PROJECT_STATE.md` "Active Roadmap".
+Smile Snap is a personal AI-powered diary generator built on FastAPI, Postgres on Neon (SQLAlchemy 2.0 async + `asyncpg` + Alembic), Firebase Auth, Google Gemini (`google-genai`), and AWS S3 (`boto3`), deployed on AWS Lambda via Mangum. See `PROJECT_STATE.md` "Active Roadmap" for current status.
 
 | Directory | Scope |
 |---|---|
@@ -32,7 +32,7 @@ Smile Snap is a personal AI-powered diary generator built on FastAPI, Firebase A
 ### Async First
 - Prefer native async clients for all I/O inside `async def` functions:
   - `httpx.AsyncClient` instead of `requests`
-  - an async database driver (target: SQLAlchemy 2.0 async + `asyncpg`; legacy code uses `motor`) instead of a sync driver
+  - SQLAlchemy 2.0 async + `asyncpg` instead of a sync DB driver
   - `gemini_client.aio` for Gemini API calls
 - Wrap unavoidable synchronous SDK calls (`ipinfo`, `boto3` including `.read()` on S3 `StreamingBody`, `firebase_admin.auth` such as `verify_id_token` which can fetch Google public certs over HTTPS) with `asyncio.to_thread(...)`.
 - Flag any blocking synchronous call inside an `async def` handler or service.
@@ -47,12 +47,11 @@ Smile Snap is a personal AI-powered diary generator built on FastAPI, Firebase A
   - Do not rely on in-memory dictionaries or process-local state across requests or instances.
   - Do not assume container persistence between Lambda invocations.
   - Flag any pattern that breaks under multi-instance or ephemeral execution.
-- *Known legacy code being removed:* the in-memory WebSocket `manager` (`server/routers/websockets.py`) and its calls in REST routes. WebSockets are being removed entirely (Active Roadmap Step 2). Do not copy this pattern into new code.
 - Use AWS IAM roles for `boto3` and explicit env credentials (`GCP_SERVICE_ACCOUNT_JSON`) for Firebase Admin — do not rely on GCP Application Default Credentials (ADC).
 
 ### Lambda Packaging
 - Preserve `.dist-info` directories when building Lambda deployment zips (required at runtime by `email-validator` / `importlib.metadata`).
-- Respect Lambda's 250 MB unzipped size limit and ensure native wheels (`pydantic_core`, `cryptography`, `grpcio`, `pillow`) match Lambda's Linux OS, architecture, and Python version.
+- Respect Lambda's 250 MB unzipped size limit and ensure native wheels (`pydantic_core`, `cryptography`, `grpcio`, `pillow`, `asyncpg`, `greenlet`) match Lambda's Linux OS, architecture, and Python version.
 
 ### Separation of Concerns & Error Handling
 - Keep route handlers in `server/routers/` lean (request parsing, auth dependencies, response shaping). Place business logic, external API integrations, and database queries in `server/services/`.
@@ -72,8 +71,9 @@ Smile Snap is a personal AI-powered diary generator built on FastAPI, Firebase A
 
 ## Commands
 
-*(Fill these in once they are verified in Active Roadmap Steps 2–6.)*
-- Run locally: `cd server && uvicorn main:app --reload` *(unverified)*
+*(Fill/update remaining entries once verified in Active Roadmap Steps 5–6.)*
+- Run locally: `cd server && ../venv/bin/uvicorn main:app --reload` *(verified)*
+- Migrations: `cd server && ../venv/bin/alembic upgrade head` *(verified)*
 - Tests: `cd server && ../venv/bin/pytest` *(or `cd server && pytest` with `venv` activated — verified)*
 - Lint: `ruff check server/` *(not yet configured)*
 

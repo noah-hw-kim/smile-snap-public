@@ -230,7 +230,7 @@ function setupUserEventListeners() {
             } catch (error) {
                 console.error('Upload failed:', error);
             } finally {
-                setLoading(submitBtn, false, '<i class="bi bi-cloud-upload"></i> Upload to GCS');
+                setLoading(submitBtn, false, '<i class="bi bi-cloud-upload"></i> Upload');
             }
         });
     }

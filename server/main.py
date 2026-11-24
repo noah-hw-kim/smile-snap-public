@@ -1,11 +1,18 @@
+import json
+import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s:%(name)s:%(message)s",
+)
+logging.getLogger().setLevel(logging.INFO)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import users, entries, screenshots, auth, admin
 from mangum import Mangum
 import firebase_admin
 from firebase_admin import credentials
-import json
-import logging
 from config import settings
 
 logger = logging.getLogger(__name__)
