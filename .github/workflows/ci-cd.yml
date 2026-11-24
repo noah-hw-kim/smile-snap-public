@@ -1,0 +1,179 @@
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  # 1. Frontend Checks (TypeScript + Vitest + Vite production build)
+  frontend-ci:
+    name: Frontend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run unit tests
+        run: npm test
+
+      - name: Build production bundle
+        run: npm run build
+
+  # 2. Backend Checks (Ruff lint + mocked pytest suite)
+  backend-ci:
+    name: Backend CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+          cache: "pip"
+          cache-dependency-path: server/requirements*.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint with Ruff
+        run: ruff check .
+
+      - name: Run unit tests
+        run: pytest
+
+  # 3. Deploy Backend to AWS Lambda (main branch only, after CI passes)
+  deploy-lambda:
+    name: Deploy Backend to AWS Lambda
+    needs: [frontend-ci, backend-ci]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # Required for GitHub OIDC -> AWS IAM role assumption
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate required GitHub secrets and variables
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
+          LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME }}
+        run: |
+          missing=0
+          if [ -z "$AWS_ROLE_ARN" ]; then
+            echo "ERROR: Repository secret AWS_ROLE_ARN is not set."
+            missing=1
+          fi
+          if [ -z "$AWS_REGION" ]; then
+            echo "ERROR: Repository variable AWS_REGION is not set."
+            missing=1
+          fi
+          if [ -z "$LAMBDA_FUNCTION_NAME" ]; then
+            echo "ERROR: Repository variable LAMBDA_FUNCTION_NAME is not set."
+            missing=1
+          fi
+          if [ "$missing" -ne 0 ]; then
+            echo "Configure these in GitHub -> Settings -> Secrets and variables -> Actions."
+            exit 1
+          fi
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Build Lambda deployment package (Python 3.14 x86_64)
+        run: |
+          rm -rf package deployment.zip
+          mkdir -p package
+
+          # Install Amazon Linux 2023-compatible wheels; preserve .dist-info for importlib.metadata
+          pip install \
+            --platform manylinux_2_28_x86_64 \
+            --platform manylinux_2_17_x86_64 \
+            --platform manylinux2014_x86_64 \
+            --target package \
+            --implementation cp \
+            --python-version 3.14 \
+            --only-binary=:all: \
+            -r server/requirements.txt
+
+          # Copy runtime application modules only (exclude tests, alembic, .env)
+          cp server/main.py server/config.py server/database.py server/db_models.py server/dependencies.py server/models.py package/
+          cp -r server/routers server/services package/
+          find package -name "__pycache__" -type d -exec rm -rf {} +
+
+          # Verify unzipped size stays under AWS Lambda's 250 MB (262,144,000 bytes) limit
+          UNZIPPED_BYTES=$(du -sb package | cut -f1)
+          UNZIPPED_MB=$((UNZIPPED_BYTES / 1024 / 1024))
+          echo "Unzipped package size: ${UNZIPPED_MB} MB (${UNZIPPED_BYTES} bytes)"
+          if [ "$UNZIPPED_BYTES" -gt 262144000 ]; then
+            echo "ERROR: Unzipped package exceeds AWS Lambda 250 MB limit."
+            exit 1
+          fi
+
+          (cd package && zip -qr ../deployment.zip .)
+          ZIPPED_BYTES=$(stat -c%s deployment.zip)
+          ZIPPED_MB=$((ZIPPED_BYTES / 1024 / 1024))
+          echo "Zipped package size: ${ZIPPED_MB} MB (${ZIPPED_BYTES} bytes)"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update AWS Lambda function code
+        env:
+          LAMBDA_FUNCTION_NAME: ${{ vars.LAMBDA_FUNCTION_NAME }}
+          LAMBDA_DEPLOY_BUCKET: ${{ vars.LAMBDA_DEPLOY_BUCKET }}
+        run: |
+          if [ -n "$LAMBDA_DEPLOY_BUCKET" ]; then
+            echo "Uploading deployment.zip to s3://${LAMBDA_DEPLOY_BUCKET}/deployments/deployment.zip"
+            aws s3 cp deployment.zip "s3://${LAMBDA_DEPLOY_BUCKET}/deployments/deployment.zip"
+            aws lambda update-function-code \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --s3-bucket "$LAMBDA_DEPLOY_BUCKET" \
+              --s3-key "deployments/deployment.zip"
+          else
+            ZIPPED_BYTES=$(stat -c%s deployment.zip)
+            if [ "$ZIPPED_BYTES" -gt 52428800 ]; then
+              echo "ERROR: deployment.zip exceeds 50 MB direct upload limit (${ZIPPED_BYTES} bytes)."
+              echo "Set the LAMBDA_DEPLOY_BUCKET repository variable (and grant s3:PutObject on deployments/*) to deploy via S3."
+              exit 1
+            fi
+            aws lambda update-function-code \
+              --function-name "$LAMBDA_FUNCTION_NAME" \
+              --zip-file fileb://deployment.zip
+          fi
+
+          aws lambda wait function-updated --function-name "$LAMBDA_FUNCTION_NAME"
+          echo "Lambda deployment complete!"
