@@ -126,36 +126,23 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
     # The full prompt with a persona, rules, and examples
 
     new_prompt = """
-    You are my personal diary scribe, with a talent for witty, observational humor. Your job is to look at a screenshot of a moment I was happy, consider the context of where I was, and write a diary entry.
+    Write a short, candid first-person diary entry (2-3 sentences) about the moment in the attached image.
 
-    **CONTEXT:**
+    Context:
     - Location: {location_str}
     - Weather: {weather_str}
 
-    **TASK:**
-    Write a short, clever, one-paragraph diary entry about the moment captured in the attached screenshot.
+    Guidelines:
+    - Ground the entry in specific details you actually see in the image (ignore any smile-capture/camera UI if visible).
+    - Keep the tone warm, natural, and understated—like a real personal journal, lightly playful when it fits, never forced or cheesy.
+    - If location or weather is provided, weave in at most one subtle nod (never name the city, state, or country directly). If either is "Not available", omit it completely and do not invent one.
+    - Output only the diary paragraph—no title, date, quotation marks, or intro text.
 
-    **STRICT RULES:**
-    1.  **DO NOT mention the city, state, or country by name.** Instead, subtly hint at the location by referencing a local stereotype, landmark, food, or general vibe.
-    2.  The tone should be warm, personal, and genuinely funny, like an inside joke. Avoid cheesy or generic humor.
-    3.  Directly reference what you see in the screenshot.
-    4.  Keep it concise (2-3 sentences).
-    5.  End with a fitting emoji.
-    6.  Please ignore the smiling capturing program. Focus on the other parts to create the contents.
-    ---
-    **EXAMPLES:**
-
-    **Example 1:**
-    - CONTEXT: San Francisco, foggy. Screenshot shows code on a laptop.
-    - DIARY ENTRY: Finally cracked that impossible bug, feeling like a genius. For a moment there, the fog outside had nothing on the fog in my brain. Guess that's what a billion-dollar idea feels like, right before you forget to save. 💻
-
-    **Example 2:**
-    - CONTEXT: A beach town in San Diego, sunny. Screenshot shows a video of someone surfing.
-    - DIARY ENTRY: Smiled so hard watching that perfect wave. Pretty sure my only job today is to decide which taco shop to hit up later, and I'm totally okay with that. 🤙
-    ---
-
-    **YOUR TURN:**
-    Based on the provided context and the attached screenshot, write your diary entry.
+    Examples:
+    - Context: San Francisco, foggy. Image: messy desk with code editor and a coffee mug.
+      Entry: Finally watched the test suite turn green after staring at the same bug all afternoon. The gray chill outside made the warm mug next to my keyboard feel like a small victory of its own.
+    - Context: Not available. Image: plate of homemade pasta on a kitchen counter.
+      Entry: Took a little longer than planned, but the sauce actually came together on the first try tonight. Good reminder that slowing down to cook something from scratch usually fixes a long day.
     """
     start_time = time.perf_counter()
     try:
