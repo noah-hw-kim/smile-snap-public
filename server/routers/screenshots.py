@@ -1,5 +1,4 @@
 import logging
-import traceback
 from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
@@ -54,12 +53,11 @@ async def upload_screenshot(
             "photoId": photo_metadata["photoId"],
             "photoUrl": photo_metadata["photoUrl"],
         }
-    except Exception as e:
-        logger.error("=== UPLOAD FAILED ===")
-        logger.error(f"Error: {str(e)}")
-        logger.error(f"Error type: {type(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Upload failed for user %s", current_user["userId"])
+        raise HTTPException(status_code=500, detail="Failed to upload screenshot")
 
 
 @router.get("/{photoId}", response_description="Get a specific photo", response_model=Photo)
@@ -105,13 +103,8 @@ async def generate_from_screenshot(
 
     try:
         photo_doc = await get_photo_by_id(db, photoId, userId)
-        print("photo_doc completed")
-
         context = await get_contextual_data(request)
-        print("context completed")
-
         diary_content = await generate_diary_entry(photo_doc.file_path, context["location"], context["weather"])
-        print("diary_countent completed")
 
         entry_to_create = {
             "content": diary_content,
@@ -120,12 +113,14 @@ async def generate_from_screenshot(
             "weather": context.get("weather"),
         }
         diary_entry = await create_diary_entry_service(db, userId, entry_to_create)
-        print("create_diary_entry_service completed")
 
         return {
             "status": "success",
             "diary_entry": diary_entry,
             "photo_id": photoId,
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Failed to generate diary entry for photo %s", photoId)
+        raise HTTPException(status_code=500, detail="Failed to generate diary entry")

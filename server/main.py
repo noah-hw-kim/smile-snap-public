@@ -5,12 +5,15 @@ from mangum import Mangum
 import firebase_admin
 from firebase_admin import credentials
 import json
+import logging
 from config import settings
+
+logger = logging.getLogger(__name__)
 
 # ── Firebase init ──────────────────────────────────────────────────────────────
 # On Lambda there is no GCP metadata server, so ADC (ApplicationDefault) won't work.
 # We load the service account JSON from the GCP_SERVICE_ACCOUNT_JSON env var instead.
-print("Initializing Firebase with service account credentials")
+logger.info("Initializing Firebase with service account credentials")
 service_account_info = json.loads(settings.GCP_SERVICE_ACCOUNT_JSON)
 cred = credentials.Certificate(service_account_info)
 firebase_admin.initialize_app(cred)

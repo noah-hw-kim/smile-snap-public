@@ -1,8 +1,12 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+import logging
+
 from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 import ipinfo
 from google import genai
 import boto3
+
+logger = logging.getLogger(__name__)
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
@@ -19,8 +23,8 @@ class Settings(BaseSettings):
 
     # External APIs
     GEMINI_API_KEY: str
-    IPINFO_API_TOKEN: str
-    WEATHER_API_KEY: str
+    IPINFO_API_TOKEN: str = Field(default="")
+    WEATHER_API_KEY: str = Field(default="")
     FIREBASE_WEB_API_KEY: str
 
     # Firebase — explicit service account for non-GCP environments (Lambda)
@@ -52,11 +56,11 @@ OPENWEATHER_API_URL = "https://api.openweathermap.org/data/2.5/weather"
 
 gemini_client = genai.Client(api_key=GEMINI_API_KEY)
 
-ipinfo_handler = ipinfo.getHandler(access_token=IPINFO_API_TOKEN)
+ipinfo_handler = ipinfo.getHandler(access_token=IPINFO_API_TOKEN) if IPINFO_API_TOKEN else None
 
 # S3 client — on Lambda, credentials come from the IAM execution role automatically.
 # Locally, boto3 reads from ~/.aws/credentials (set by `aws configure`).
 # No keys in code — same principle as ADC, but for AWS.
 s3_client = boto3.client("s3")
 
-print("✅ All required environment variables loaded and validated")
+logger.info("All required environment variables loaded and validated")

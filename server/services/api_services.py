@@ -1,10 +1,14 @@
 import asyncio
+import logging
+import time
 import httpx
 from fastapi import Request, UploadFile, HTTPException
 import uuid
 from config import settings, ipinfo_handler, gemini_client, s3_client
 from PIL import Image
 from io import BytesIO
+
+logger = logging.getLogger(__name__)
 
 # Hardcoded service URLs — these never change between environments
 _EXTERNAL_IP_SERVICE = "https://httpbin.org/ip"
@@ -57,14 +61,15 @@ async def get_api_ready_ip(request: Request) -> str:
                 public_ip = response.json().get("origin")
                 return public_ip
         except Exception as e:
-            print(f"IP Service error: {e}")
+            logger.warning("IP service lookup failed: %s", e)
             return actual_ip
     
     return actual_ip
 
 async def get_weather_from_coordinates(lat, lon):
-    # OpenWeather API endpoint for current weather
-    
+    if not settings.WEATHER_API_KEY:
+        return {}
+
     # Parameters for the API request
     params = {
         "lat": lat,
@@ -90,7 +95,7 @@ async def get_weather_from_coordinates(lat, lon):
             }
 
     except Exception as e:
-        print(f"Weather API error: {e}")
+        logger.warning("Weather API error: %s", e)
         return {}
 
 async def generate_diary_entry(file_path: str, location_data: dict = None, weather_data: dict = None) -> str:
@@ -131,6 +136,7 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
     **YOUR TURN:**
     Based on the provided context and the attached screenshot, write your diary entry.
     """
+    start_time = time.perf_counter()
     try:
         # 1. Download image bytes from S3
         s3_response = await asyncio.to_thread(
@@ -165,23 +171,28 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
                 full_prompt
             ]
         )
-        
-        return response.text.strip()
-        
-    except Exception as e:
-        print(f"Error generating diary entry: {e}")
-        return "Captured a beautiful smile today! 😊"
+
+        diary_text = (response.text or "").strip()
+        if not diary_text:
+            raise ValueError("Empty response from Gemini")
+
+        logger.info("Generated diary entry in %.2fs", time.perf_counter() - start_time)
+        return diary_text
+
+    except Exception:
+        logger.exception("Error generating diary entry for %s", file_path)
+        raise HTTPException(status_code=502, detail="Failed to generate diary entry")
 
 async def get_location_from_ip(ip_address):
     try:
-        if not ip_address:
+        if not ip_address or ipinfo_handler is None:
             return None
 
         details = await asyncio.to_thread(ipinfo_handler.getDetails, ip_address)
         return details.all
     
     except Exception as e:
-        print(f"Error getting location for IP {ip_address}: {e}")
+        logger.warning("Error getting location for IP %s: %s", ip_address, e)
         return None
 
 # 1. Get IP and location information
@@ -225,6 +236,6 @@ async def upload_image_to_s3(userId: str, image: UploadFile) -> str:
             ContentType=image.content_type or "image/png"
         )
         return unique_filename
-    except Exception as e:
-        print(f"Error uploading to S3: {e}")
+    except Exception:
+        logger.exception("Error uploading image to S3 for user %s", userId)
         raise HTTPException(status_code=500, detail="Failed to upload image")

@@ -44,11 +44,12 @@ async def create_user_services(db: AsyncSession, user_data: dict) -> dict:
             status_code=400,
             detail=f"User with email {user_data['email']} already exists.",
         )
-    except Exception as e:
+    except Exception:
         await db.rollback()
+        logger.exception("Error occurred during user creation")
         raise HTTPException(
             status_code=500,
-            detail=f"An error occurred during user creation: {e}",
+            detail="Failed to create user",
         )
 
 
@@ -245,9 +246,9 @@ async def create_diary_entry_service(db: AsyncSession, userId: str, entry_data: 
 
     except HTTPException:
         raise
-    except Exception as e:
+    except Exception:
         await db.rollback()
-        print(f"Unexpected error creating diary entry: {e}")
+        logger.exception("Unexpected error creating diary entry for user %s", userId)
         raise HTTPException(status_code=500, detail="Failed to create diary entry")
 
 

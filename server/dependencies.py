@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from firebase_admin import auth
@@ -5,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db, user_helper
 from db_models import PhotoModel, UserModel
+
+logger = logging.getLogger(__name__)
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
@@ -28,9 +32,10 @@ async def get_current_user(
     except HTTPException:
         raise
     except Exception as e:
+        logger.warning("Token verification failed: %s", e)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials: {e}",
+            detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -87,5 +92,6 @@ async def get_accessible_photo(
 
     except HTTPException:
         raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error accessing photo: {str(e)}")
+    except Exception:
+        logger.exception("Error accessing photo %s", photoId)
+        raise HTTPException(status_code=500, detail="Error accessing photo")
