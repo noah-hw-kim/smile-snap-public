@@ -72,11 +72,16 @@ async def get_weather_from_coordinates(lat, lon):
     if not settings.WEATHER_API_KEY:
         return {}
 
+    start_time = time.perf_counter()
     try:
         cache_key = f"smilesnap:weather:{float(lat):.2f}:{float(lon):.2f}"
         cached = await cache_get_json(cache_key)
         if cached is not None:
-            logger.info("Weather cache hit for %s", cache_key)
+            logger.info(
+                "Weather lookup cache=hit duration_ms=%.1f key=%s",
+                (time.perf_counter() - start_time) * 1000,
+                cache_key,
+            )
             return cached
 
         # Parameters for the API request
@@ -103,6 +108,11 @@ async def get_weather_from_coordinates(lat, lon):
                 # "raw_data": weather_data  # Include full response for debugging
             }
             await cache_set_json(cache_key, result, WEATHER_CACHE_TTL_SECONDS)
+            logger.info(
+                "Weather lookup cache=miss duration_ms=%.1f key=%s",
+                (time.perf_counter() - start_time) * 1000,
+                cache_key,
+            )
             return result
 
     except Exception as e:
@@ -186,15 +196,25 @@ async def get_location_from_ip(ip_address):
         if not ip_address or ipinfo_handler is None:
             return None
 
+        start_time = time.perf_counter()
         cache_key = f"smilesnap:geo:{ip_address}"
         cached = await cache_get_json(cache_key)
         if cached is not None:
-            logger.info("Geolocation cache hit for %s", cache_key)
+            logger.info(
+                "Geo lookup cache=hit duration_ms=%.1f key=%s",
+                (time.perf_counter() - start_time) * 1000,
+                cache_key,
+            )
             return cached
 
         details = await asyncio.to_thread(ipinfo_handler.getDetails, ip_address)
         if details.all:
             await cache_set_json(cache_key, details.all, GEO_CACHE_TTL_SECONDS)
+        logger.info(
+            "Geo lookup cache=miss duration_ms=%.1f key=%s",
+            (time.perf_counter() - start_time) * 1000,
+            cache_key,
+        )
         return details.all
 
     except Exception as e:
@@ -203,6 +223,7 @@ async def get_location_from_ip(ip_address):
 
 # 1. Get IP and location information
 async def get_contextual_data(request: Request) -> dict:
+    start_time = time.perf_counter()
     ip_info = await get_api_ready_ip(request)
     location_raw = await get_location_from_ip(ip_info)
 
@@ -226,6 +247,7 @@ async def get_contextual_data(request: Request) -> dict:
                 "temperature": raw_weather.get("temperature")
             }
 
+    logger.info("Enrichment completed duration_ms=%.1f", (time.perf_counter() - start_time) * 1000)
     return {"location": location_data, "weather": weather_data}
 
 # 3. Upload image to S3

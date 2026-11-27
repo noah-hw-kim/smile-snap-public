@@ -1,4 +1,5 @@
 from io import BytesIO
+import logging
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -231,3 +232,30 @@ def test_get_client_ip_ignores_forwarded_headers_and_uses_client_host():
     no_client_request.client = None
 
     assert api_services.get_client_ip(no_client_request) == "unknown"
+
+
+async def test_enrichment_logs_cache_hit_and_miss_durations(monkeypatch, caplog):
+    """Geo and weather lookups log cache=hit/miss with duration_ms for CloudWatch queries."""
+    mock_handler = MagicMock()
+    mock_handler.getDetails = MagicMock(return_value=SimpleNamespace(all={"city": "Seoul"}))
+    monkeypatch.setattr(api_services, "ipinfo_handler", mock_handler)
+    monkeypatch.setattr(api_services.settings, "WEATHER_API_KEY", "test-weather-key")
+    monkeypatch.setattr(api_services, "cache_set_json", AsyncMock())
+
+    with caplog.at_level(logging.INFO, logger=api_services.__name__):
+        monkeypatch.setattr(api_services, "cache_get_json", AsyncMock(return_value=None))
+        await api_services.get_location_from_ip("8.8.8.8")
+
+        monkeypatch.setattr(api_services, "cache_get_json", AsyncMock(return_value={"city": "Seoul"}))
+        await api_services.get_location_from_ip("8.8.8.8")
+
+        monkeypatch.setattr(
+            api_services,
+            "cache_get_json",
+            AsyncMock(return_value={"weather": "clear sky", "temperature": 21.0}),
+        )
+        await api_services.get_weather_from_coordinates(37.56, 126.97)
+
+    assert "Geo lookup cache=miss duration_ms=" in caplog.text
+    assert "Geo lookup cache=hit duration_ms=" in caplog.text
+    assert "Weather lookup cache=hit duration_ms=" in caplog.text

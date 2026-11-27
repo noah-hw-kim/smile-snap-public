@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import List
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
@@ -131,6 +132,7 @@ async def generate_from_screenshot(
         )
 
     logger.info("Generating diary entry for photo %s by user %s", photoId, userId)
+    request_start = time.perf_counter()
 
     try:
         photo_doc = await get_photo_by_id(db, photoId, userId)
@@ -144,6 +146,11 @@ async def generate_from_screenshot(
             "weather": context.get("weather"),
         }
         diary_entry = await create_diary_entry_service(db, userId, entry_to_create)
+        logger.info(
+            "Diary generate request completed photo_id=%s duration_ms=%.1f",
+            photoId,
+            (time.perf_counter() - request_start) * 1000,
+        )
 
         return {
             "status": "success",
