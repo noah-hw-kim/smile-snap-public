@@ -91,14 +91,14 @@ async def update_user_service(db: AsyncSession, userId: str, user_data: dict) ->
 async def delete_user_service(db: AsyncSession, userId: str) -> bool:
     """Delete a user in Firebase Auth first, then S3 photos, then Postgres (CASCADE)."""
     try:
-        logger.info(f"Starting deletion for user {userId}")
+        logger.info("Starting deletion for user %s", userId)
 
         try:
             await asyncio.to_thread(auth.delete_user, userId)
-            logger.info(f"Successfully deleted user {userId} from Firebase Auth")
+            logger.info("Successfully deleted user %s from Firebase Auth", userId)
         except Exception as e:
             # If Firebase fails, ABORT entirely. Do not touch the DB.
-            logger.error(f"Failed to delete Firebase identity for {userId}. Aborting deletion: {e}")
+            logger.error("Failed to delete Firebase identity for %s. Aborting deletion: %s", userId, e)
             return False
 
         photo_paths_result = await db.execute(
@@ -113,9 +113,9 @@ async def delete_user_service(db: AsyncSession, userId: str) -> bool:
                     Bucket=settings.S3_BUCKET_NAME,
                     Delete={"Objects": objects_to_delete},
                 )
-                logger.info(f"Batch deleted {len(objects_to_delete)} photos from S3")
+                logger.info("Batch deleted %d photos from S3", len(objects_to_delete))
             except Exception as e:
-                logger.error(f"Failed batch S3 deletion for {userId}: {e}")
+                logger.error("Failed batch S3 deletion for %s: %s", userId, e)
                 # Log and continue so user/DB cleanup still finishes.
 
         user = await db.get(UserModel, userId)
@@ -128,7 +128,7 @@ async def delete_user_service(db: AsyncSession, userId: str) -> bool:
 
     except Exception as e:
         await db.rollback()
-        logger.error(f"Critical error in delete_user_service for {userId}: {str(e)}")
+        logger.error("Critical error in delete_user_service for %s: %s", userId, e)
         return False
 
 
@@ -182,7 +182,7 @@ async def delete_photo_service(db: AsyncSession, userId: str, photoId: str) -> b
             )
             logger.info("Batch deleted 1 photos from S3")
         except Exception as e:
-            logger.error(f"Failed batch S3 deletion for {userId}: {e}")
+            logger.error("Failed batch S3 deletion for %s: %s", userId, e)
 
     await db.delete(photo_doc)
     await db.commit()

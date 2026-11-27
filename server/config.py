@@ -32,6 +32,20 @@ class Settings(BaseSettings):
 
     # App
     ENVIRONMENT: str = Field(default="production")
+    CORS_ORIGINS: str = Field(
+        default=(
+            "http://localhost,"
+            "http://localhost:5173,"
+            "http://127.0.0.1:5173,"
+            "http://localhost:8080,"
+            "http://127.0.0.1:8080,"
+            "http://127.0.0.1:5500,"
+            "https://smile-snap.vercel.app,"
+            "https://smile-snap-git-main-noah-kims-projects-027c25a1.vercel.app,"
+            "https://smile-snap-6q6kd1b98-noah-kims-projects-027c25a1.vercel.app"
+        )
+    )
+    GEMINI_MODEL: str = Field(default="gemini-3.5-flash-lite")
 
     # Redis (optional — leave blank to disable caching and rate limiting)
     REDIS_URL: str = Field(default="")

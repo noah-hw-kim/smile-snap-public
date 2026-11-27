@@ -29,17 +29,7 @@ firebase_admin.initialize_app(cred)
 app = FastAPI(redirect_slashes=False)
 
 # ── CORS ───────────────────────────────────────────────────────────────────────
-origins = [
-    "http://localhost",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://127.0.0.1:5500",
-    "https://smile-snap.vercel.app",
-    "https://smile-snap-git-main-noah-kims-projects-027c25a1.vercel.app",
-    "https://smile-snap-6q6kd1b98-noah-kims-projects-027c25a1.vercel.app",
-]
+origins = [o.strip() for o in settings.CORS_ORIGINS.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,

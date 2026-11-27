@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from database import get_db, photo_helper
 from dependencies import get_accessible_photo, get_current_user, verify_ownership_or_admin
-from models import Photo
+from models import GenerateDiaryResponse, Photo, PhotoUploadResponse
 from services.api_services import generate_diary_entry, get_contextual_data, upload_image_to_s3
 from services.cache_services import check_rate_limit
 from services.db_services import (
@@ -36,7 +36,7 @@ async def get_user_photos(
     return await list_photos_service(db, user_id=userId)
 
 
-@router.post("/upload", description="Uploads a screenshot and saves its metadata.")
+@router.post("/upload", description="Uploads a screenshot and saves its metadata.", response_model=PhotoUploadResponse)
 async def upload_screenshot(
     image: UploadFile = File(...),
     current_user: dict = Depends(get_current_user),
@@ -97,11 +97,15 @@ async def delete_photo(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to delete photo {photoId} for user {current_user['userId']}: {str(e)}")
+        logger.error("Failed to delete photo %s for user %s: %s", photoId, userId, e)
         raise HTTPException(status_code=500, detail="Failed to delete photo")
 
 
-@router.post("/{photoId}/generate", description="Generates a diary entry for a previously uploaded screenshot.")
+@router.post(
+    "/{photoId}/generate",
+    description="Generates a diary entry for a previously uploaded screenshot.",
+    response_model=GenerateDiaryResponse,
+)
 async def generate_from_screenshot(
     photoId: str,
     request: Request,
@@ -126,7 +130,7 @@ async def generate_from_screenshot(
             headers={"Retry-After": str(retry_after)},
         )
 
-    logger.info(f"Generating diary entry for photo {photoId} by user {userId}")
+    logger.info("Generating diary entry for photo %s by user %s", photoId, userId)
 
     try:
         photo_doc = await get_photo_by_id(db, photoId, userId)

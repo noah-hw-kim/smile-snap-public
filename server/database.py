@@ -69,7 +69,7 @@ def _generate_presigned_get_url(file_path: str | None) -> str | None:
             ExpiresIn=900,
         )
     except Exception as e:
-        logger.error(f"FAILED to generate presigned URL ({type(e).__name__}): {e}")
+        logger.error("FAILED to generate presigned URL (%s): %s", type(e).__name__, e)
         return None
 
 

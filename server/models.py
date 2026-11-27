@@ -36,6 +36,10 @@ class TokenResponse(BaseModel):
     token_type: str
     user: LoginUser
 
+class UserDeleteResponse(BaseModel):
+    message: str
+    deletedUserId: str
+
 class DiaryEntryCreate(BaseModel):
     filePath: str = Field(..., min_length=1, description="filePath to the uploaded image")
     location: Optional[dict] = Field(default=None)
@@ -59,9 +63,18 @@ class DiaryEntry(BaseModel):
     createdAt: datetime
     editedAt: Optional[datetime] = None
 
+class GenerateDiaryResponse(BaseModel):
+    status: str
+    diary_entry: DiaryEntry
+    photo_id: str
+
 class PhotoCreate(BaseModel):
     filePath: str
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class PhotoUploadResponse(BaseModel):
+    photoId: str
+    photoUrl: Optional[str] = None
 
 class Photo(BaseModel):
     userId: str

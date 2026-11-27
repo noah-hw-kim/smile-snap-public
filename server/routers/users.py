@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from database import get_db, user_helper
 from dependencies import get_current_admin_user, verify_ownership_or_admin
-from models import User, UserCreate, UserUpdate
+from models import User, UserCreate, UserDeleteResponse, UserUpdate
 from services.api_services import get_client_ip
 from services.cache_services import check_rate_limit
 from services.db_services import (
@@ -90,7 +90,7 @@ async def update_user(
 
 
 # DELETE User - user(self), admin
-@router.delete("/{userId}", response_description="Delete a user")
+@router.delete("/{userId}", response_description="Delete a user", response_model=UserDeleteResponse)
 async def delete_user(
     userId: str,
     authorized_user: dict = Depends(verify_ownership_or_admin),

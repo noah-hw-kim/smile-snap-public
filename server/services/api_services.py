@@ -159,7 +159,7 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
         
         # 4. Initialize the model and generate content
         response = await gemini_client.aio.models.generate_content(
-            model='gemini-3.5-flash-lite',
+            model=settings.GEMINI_MODEL,
             contents=[
                 # types.Part.from_bytes(
                 #     data=img_bytes,
