@@ -1,3 +1,4 @@
 pytest
 pytest-asyncio
 ruff
+uvicorn[standard]==0.46.0
