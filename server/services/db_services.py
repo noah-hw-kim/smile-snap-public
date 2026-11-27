@@ -79,8 +79,6 @@ async def update_user_service(db: AsyncSession, userId: str, user_data: dict) ->
     if not user:
         raise HTTPException(status_code=404, detail=f"User {userId} not found")
 
-    if "email" in user_data:
-        user.email = user_data["email"]
     if "displayName" in user_data:
         user.display_name = user_data["displayName"]
 

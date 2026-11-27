@@ -216,3 +216,18 @@ async def test_upload_screenshot_route_returns_429_when_upload_rate_limited(monk
     assert exc_info.value.status_code == 429
     assert exc_info.value.headers == {"Retry-After": "900"}
     mock_upload.assert_not_awaited()
+
+
+def test_get_client_ip_ignores_forwarded_headers_and_uses_client_host():
+    """get_client_ip must trust request.client.host and ignore spoofable forwarded headers."""
+    fake_request = MagicMock()
+    fake_request.headers = {"x-forwarded-for": "1.2.3.4", "x-real-ip": "5.6.7.8"}
+    fake_request.client = SimpleNamespace(host="198.51.100.42")
+
+    assert api_services.get_client_ip(fake_request) == "198.51.100.42"
+
+    no_client_request = MagicMock()
+    no_client_request.headers = {"x-forwarded-for": "1.2.3.4"}
+    no_client_request.client = None
+
+    assert api_services.get_client_ip(no_client_request) == "unknown"

@@ -1,28 +1,40 @@
-from pydantic import BaseModel, Field
 from datetime import datetime, timezone
-from typing import Optional
 from enum import Enum
+from typing import Optional
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 class UserRole(str, Enum):
     USER = "user"
     ADMIN = "admin"
 
 class UserCreate(BaseModel):
-    email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
+    email: EmailStr
     password: str = Field(..., min_length=6, description="Password must be at least 6 characters")
     displayName: Optional[str] = Field(None, max_length=100)  # User's display name
-    createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class UserUpdate(BaseModel):
-    email: Optional[str] = None
-    displayName: Optional[str] = None
+    model_config = ConfigDict(extra="forbid")
+
+    displayName: Optional[str] = Field(None, max_length=100)
 
 class User(BaseModel):
     userId: str              # Your internal user ID
     email: str
-    displayName: str = None
+    displayName: Optional[str] = None
     createdAt: datetime
     role: UserRole = UserRole.USER
+
+class LoginUser(BaseModel):
+    userId: str
+    email: str
+    displayName: Optional[str] = None
+    role: UserRole
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user: LoginUser
 
 class DiaryEntryCreate(BaseModel):
     filePath: str = Field(..., min_length=1, description="filePath to the uploaded image")
@@ -32,7 +44,7 @@ class DiaryEntryCreate(BaseModel):
     createdAt: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class DiaryEntryUpdate(BaseModel):
-    content: Optional[str] = None  # Now allowed
+    content: Optional[str] = Field(None, min_length=1, max_length=5000)
     location: Optional[dict] = None
     weather: Optional[dict] = None
 

@@ -13,7 +13,6 @@ from services.cache_services import check_rate_limit
 from services.db_services import (
     create_user_services,
     delete_user_service,
-    get_user_by_email,
     get_user_by_id,
     list_users_service,
     update_user_service,
@@ -85,11 +84,6 @@ async def update_user(
     target_user = await get_user_by_id(db, userId)
     if not target_user:
         raise HTTPException(status_code=404, detail=f"User {userId} not found")
-
-    if user.email and user.email != target_user.email:
-        email_exists = await get_user_by_email(db, user.email)
-        if email_exists:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
 
     user_dict = user.model_dump(exclude_unset=True)
     return await update_user_service(db, userId, user_dict)

@@ -1,19 +1,26 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from config import FIREBASE_SIGN_IN_URL
+from config import FIREBASE_SIGN_IN_URL, settings
 from database import get_db
-import logging
+from models import TokenResponse
+from services.api_services import get_client_ip
+from services.cache_services import check_rate_limit
 from services.db_services import get_user_by_id
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     tags=["Authentication"]
 )
 
-@router.post("/token")
+@router.post("/token", response_model=TokenResponse)
 async def login_for_access_token(
+    request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: AsyncSession = Depends(get_db),
 ):
@@ -21,14 +28,25 @@ async def login_for_access_token(
     Takes email (as username) and password, sends them to Firebase,
     and returns the Firebase ID Token.
     """
+    client_ip = get_client_ip(request)
+    allowed, retry_after = await check_rate_limit(
+        f"smilesnap:rl:login:{client_ip}",
+        limit=settings.LOGIN_RATE_LIMIT,
+        window_seconds=settings.LOGIN_RATE_WINDOW_SECONDS,
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many login attempts. Please try again later.",
+            headers={"Retry-After": str(retry_after)},
+        )
+
     payload = {
         "email": form_data.username,
         "password": form_data.password,
         "returnSecureToken": True
     }
 
-    logger = logging.getLogger(__name__)
-    
     try:
         async with httpx.AsyncClient() as client:
             response = await client.post(FIREBASE_SIGN_IN_URL, json=payload, timeout=10)
@@ -55,13 +73,19 @@ async def login_for_access_token(
                     "role": user_from_db.role,
                 },
             }
-        
+
     except httpx.HTTPStatusError as e:
-        # httpx raises HTTPStatusError on 4xx/5xx responses from raise_for_status()
-        logger.error(f"Firebase auth error: {str(e)}")
+        # Log only the status code so str(e) never leaks the request URL (?key=...)
+        logger.warning("Firebase sign-in rejected with status %s", e.response.status_code)
 
         # Don't expose internal errors to client
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, 
-            detail="Authentication failed"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
+        )
+    except httpx.RequestError as e:
+        logger.error("Firebase sign-in request failed: %s", type(e).__name__)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable",
         )

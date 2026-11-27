@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from fastapi import Depends, HTTPException, status
@@ -22,7 +23,7 @@ async def get_current_user(
     Raises an HTTPException if the token is invalid.
     """
     try:
-        decoded_token = auth.verify_id_token(token)
+        decoded_token = await asyncio.to_thread(auth.verify_id_token, token)
 
         user = await db.get(UserModel, decoded_token.get("uid"))
         if not user:

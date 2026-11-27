@@ -28,22 +28,12 @@ _ALLOWED_IMAGE_TYPES = {
 
 def get_client_ip(request: Request) -> str:
     """
-    Get the most reliable client IP address from request
-    
-    Args:
-        request: FastAPI Request object
-        
-    Returns:
-        str: Client IP address
+    Get the client IP address from infrastructure-populated request metadata.
+
+    On AWS Lambda, Mangum populates request.client from API Gateway / Function URL
+    requestContext sourceIp (not spoofable by clients). Forwarded headers like
+    X-Forwarded-For and X-Real-IP are client-controlled and must not be trusted.
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
-    
-    real_ip = request.headers.get("x-real-ip") 
-    if real_ip:
-        return real_ip
-        
     return request.client.host if request.client else "unknown"
 
 async def get_api_ready_ip(request: Request) -> str:
@@ -152,7 +142,7 @@ async def generate_diary_entry(file_path: str, location_data: dict = None, weath
             Bucket=settings.S3_BUCKET_NAME,
             Key=file_path
         )
-        img_bytes = s3_response["Body"].read()
+        img_bytes = await asyncio.to_thread(s3_response["Body"].read)
         img = Image.open(BytesIO(img_bytes))
 
         # 2. Build cleaner context strings

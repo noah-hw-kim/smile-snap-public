@@ -4,9 +4,10 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from fastapi import HTTPException
 from firebase_admin import auth
+from pydantic import ValidationError
 
 from db_models import UserModel
-from models import UserCreate
+from models import DiaryEntryUpdate, UserCreate, UserUpdate
 from services import db_services
 
 
@@ -110,3 +111,22 @@ async def test_create_user_route_returns_429_when_signup_rate_limited(monkeypatc
     assert exc_info.value.status_code == 429
     assert exc_info.value.headers == {"Retry-After": "1800"}
     mock_create.assert_not_awaited()
+
+
+def test_user_update_rejects_email_change():
+    """UserUpdate must reject email fields so Postgres and Firebase emails cannot drift."""
+    with pytest.raises(ValidationError):
+        UserUpdate(email="new@example.com")
+
+
+def test_user_create_rejects_invalid_email():
+    """UserCreate must validate email format with EmailStr."""
+    with pytest.raises(ValidationError):
+        UserCreate(email="not-an-email", password="secret123")
+
+
+def test_diary_entry_update_enforces_content_max_length():
+    """DiaryEntryUpdate enforces the same 5000-char limit as DiaryEntryCreate."""
+    assert DiaryEntryUpdate(content="x" * 5000).content == "x" * 5000
+    with pytest.raises(ValidationError):
+        DiaryEntryUpdate(content="x" * 5001)
