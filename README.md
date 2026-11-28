@@ -103,6 +103,26 @@ Defined in [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml):
 
 ---
 
+## 📊 Measured Performance
+
+Measured on live AWS Lambda (`us-east-1`, Python 3.14 `x86_64`) via CloudWatch Logs Insights, GitHub Actions build logs, and sequential `curl` benchmarks against the deployed Function URL:
+
+| Metric | Scope / Sample | Result |
+|---|---|---|
+| **Diary generation (server handler)** | `POST /screenshots/{photoId}/generate`, warm Lambda (`n = 102`) | **1.01 s p50 / 1.44 s p95** (`0.78 s` min – `2.04 s` max; target `< 3 s` warm) |
+| **S3 fetch + Gemini inference step** | Subset of handler above (`n = 102`) | **0.93 s p50 / 1.35 s p95** (~92% of handler p50) |
+| **Diary generation (client end-to-end)** | Sequential `curl` incl. TLS, RTT, JWT auth, rate limit (`n = 75`) | **1.42 s p50 / 1.66 s p95** (`1.18 s` min – `1.92 s` max; `75/75` HTTP `200`) |
+| **OpenWeather Redis cache-aside** | Upstash `rediss://`, 20m TTL (`n = 20` hits, `n = 6` misses) | **106.1 ms (miss) → 25.6 ms (hit) p50** (~76% miss-vs-hit reduction, 0 external weather calls on hits) |
+| **Lambda unzipped package size** | GitHub Actions `x86_64` build (`3636f72` → `df71d97`) | **178 MB → 145 MB (-18.7%)** (under AWS Lambda's 250 MB limit) |
+| **Backend quality checks** | `pytest` + `ruff` in CI | **38 mocked unit tests passing**, `0` lint errors |
+
+**Measurement notes:**
+* Server handler timing (`Diary generate request completed`) measures Neon Postgres photo lookup, enrichment, S3 + Gemini generation, and Postgres entry insert; Firebase JWT verification and Redis rate limiting run before the handler timer and are captured in the client end-to-end measurement.
+* Upstash Redis hits take ~26–29 ms because each call opens a fresh TLS connection (`rediss://`) rather than reusing a pooled client (tracked in Future Improvements). Cache-aside misses include both `GET` and `SET` Redis round-trips plus the upstream HTTP call.
+* `ipinfo`'s Python SDK maintains a per-container in-memory `TTLCache` (L1), while Redis provides shared L2 caching across Lambda containers.
+
+---
+
 ## 📡 Key API Endpoints
 
 Protected endpoints require `Authorization: Bearer <token>` obtained from `POST /token`.
